@@ -1,0 +1,28 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme inline {
+  --font-sans: 'IBM Plex Sans', 'Segoe UI', sans-serif;
+  --color-canvas: var(--ui-canvas);
+  --color-surface: var(--ui-surface);
+  --color-ink: var(--ui-ink);
+  --color-muted: var(--ui-muted);
+  --color-line: var(--ui-line);
+  --color-brand: var(--ui-brand);
+  --color-brand-strong: var(--ui-brand-strong);
+  --color-brand-soft: var(--ui-brand-soft);
+  --color-brand-contrast: var(--ui-brand-contrast);
+  --color-danger: var(--ui-danger);
+  --color-danger-soft: var(--ui-danger-soft);
+  --color-danger-contrast: var(--ui-danger-contrast);
+  --color-warning: var(--ui-warning);
+  --color-warning-soft: var(--ui-warning-soft);
+  --color-success: var(--ui-success);
+  --color-success-soft: var(--ui-success-soft);
+  --color-info: var(--ui-info);
+  --color-info-soft: var(--ui-info-soft);
+  --color-sidebar: var(--ui-sidebar);
+  --color-sidebar-ink: var(--ui-sidebar-ink);
+  --color-sidebar-muted: var(--ui-sidebar-muted);
+}

@@ -1,0 +1,88 @@
+@import './tailwind.css';
+
+:root {
+  --ui-canvas: #f3f0e8;
+  --ui-surface: #fffcf8;
+  --ui-ink: #1c1915;
+  --ui-muted: #6f685e;
+  --ui-line: #e4ddd2;
+  --ui-brand: #0e6b62;
+  --ui-brand-strong: #0a564f;
+  --ui-brand-soft: #e5f3f1;
+  --ui-brand-contrast: #f4fffd;
+  --ui-danger: #9f2d22;
+  --ui-danger-soft: #fdeceb;
+  --ui-danger-contrast: #fffaf8;
+  --ui-warning: #9a4d08;
+  --ui-warning-soft: #fef4e6;
+  --ui-success: #067647;
+  --ui-success-soft: #e7f6ee;
+  --ui-info: #175cd3;
+  --ui-info-soft: #e8f0fe;
+  --ui-sidebar: #102421;
+  --ui-sidebar-ink: #e7f3f1;
+  --ui-sidebar-muted: #9db8b3;
+  color-scheme: light;
+}
+
+.dark {
+  --ui-canvas: #101210;
+  --ui-surface: #1a1e1b;
+  --ui-ink: #f6f3ec;
+  --ui-muted: #b7b1a6;
+  --ui-line: #2e332c;
+  --ui-brand: #7ddecf;
+  --ui-brand-strong: #b7f3e8;
+  --ui-brand-soft: #16332f;
+  --ui-brand-contrast: #06221f;
+  --ui-danger: #ffb4ab;
+  --ui-danger-soft: #3b1614;
+  --ui-danger-contrast: #3b0a08;
+  --ui-warning: #ffc58a;
+  --ui-warning-soft: #3a2714;
+  --ui-success: #8ddeb5;
+  --ui-success-soft: #123228;
+  --ui-info: #b3ccff;
+  --ui-info-soft: #16233a;
+  --ui-sidebar: #0c1412;
+  --ui-sidebar-ink: #e7f3f1;
+  --ui-sidebar-muted: #8aa39e;
+  color-scheme: dark;
+}
+
+@layer base {
+  html {
+    background: var(--ui-canvas);
+    color: var(--ui-ink);
+    font-family: var(--font-sans);
+  }
+
+  body {
+    margin: 0;
+    min-height: 100svh;
+    background: var(--ui-canvas);
+    color: var(--ui-ink);
+    font-family: inherit;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  #root {
+    min-height: 100svh;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  button,
+  input,
+  select {
+    font: inherit;
+  }
+
+  ::selection {
+    background: var(--ui-brand-soft);
+    color: var(--ui-ink);
+  }
+}
