@@ -1,0 +1,62 @@
+.ui-modal-root {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  pointer-events: none;
+}
+
+.ui-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  background: var(--overlay-scrim);
+  opacity: 0;
+  pointer-events: auto;
+  transition: opacity var(--duration-normal) var(--ease-standard);
+}
+
+.ui-modal-backdrop-visible {
+  opacity: 1;
+}
+
+.ui-modal-panel {
+  position: relative;
+  z-index: 1;
+  width: min(var(--modal-max-width), calc(100vw - 2rem));
+  max-height: min(90svh, 40rem);
+  overflow: hidden;
+  border: 1px solid var(--ui-line);
+  border-radius: var(--radius-xl);
+  background: var(--ui-surface);
+  color: var(--ui-ink);
+  box-shadow: var(--shadow-modal);
+  opacity: 0;
+  transform: translateY(8px) scale(0.985);
+  pointer-events: auto;
+  transition:
+    opacity var(--duration-normal) var(--ease-standard),
+    transform var(--duration-moderate) var(--ease-emphasized);
+}
+
+.ui-modal-panel-visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-modal-backdrop,
+  .ui-modal-panel {
+    transition: none;
+  }
+
+  .ui-modal-panel {
+    transform: none;
+  }
+}

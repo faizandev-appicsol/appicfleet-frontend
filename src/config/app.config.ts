@@ -4,7 +4,6 @@ export const appConfig = {
   routes: {
     home: '/',
     login: '/login',
-    register: '/register',
     unauthorized: '/unauthorized',
     users: '/users',
   },

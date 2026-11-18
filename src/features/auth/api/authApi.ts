@@ -6,11 +6,12 @@ import {
   sessionUserSchema,
   type AuthSession,
   type LoginRequest,
-  type RegisterRequest,
   type SessionUser,
 } from '@/features/auth/types/auth.types'
 import { baseApi } from '@/lib/api/baseApi'
+import { tokenStorage } from '@/lib/storage/tokenStorage'
 import type { FetchBaseQueryError } from '@reduxjs/toolkit/query'
+import type { RootState } from '@/app/store'
 
 function isAbort(error: unknown): boolean {
   if (typeof error !== 'object' || error === null || !('error' in error)) return false
@@ -42,31 +43,15 @@ export const authApi = baseApi.injectEndpoints({
         }
       },
     }),
-    register: builder.mutation<AuthSession, RegisterRequest>({
-      query: (body) => ({
-        url: AUTH_ENDPOINTS.register,
-        method: 'POST',
-        body,
-      }),
-      transformResponse: (response: unknown) => {
-        const session = parseAuthSession(response)
-        if (!session) throw new Error('The registration response did not include a session.')
-        return session
-      },
-      async onQueryStarted(_argument, { dispatch, queryFulfilled }) {
-        try {
-          const { data } = await queryFulfilled
-          rememberSession(dispatch, data)
-        } catch {
-          // The form renders the error.
+    logout: builder.mutation<void, void>({
+      query: () => {
+        const refreshToken = tokenStorage.getRefreshToken()
+        return {
+          url: AUTH_ENDPOINTS.logout,
+          method: 'POST',
+          body: refreshToken ? { refreshToken } : {},
         }
       },
-    }),
-    logout: builder.mutation<void, void>({
-      query: () => ({
-        url: AUTH_ENDPOINTS.logout,
-        method: 'POST',
-      }),
     }),
     refresh: builder.mutation<AuthSession, void>({
       async queryFn(_argument, api) {
@@ -82,12 +67,14 @@ export const authApi = baseApi.injectEndpoints({
 
         return { data: session }
       },
-      async onQueryStarted(_argument, { dispatch, queryFulfilled }) {
+      async onQueryStarted(_argument, { dispatch, getState, queryFulfilled }) {
         try {
           const { data } = await queryFulfilled
-          rememberSession(dispatch, data)
+          rememberSession(dispatch, data, getState())
         } catch (error) {
-          if (!isAbort(error)) dispatch(clearSession())
+          if (!isAbort(error) && (getState() as RootState).auth.status !== 'unauthenticated') {
+            dispatch(clearSession())
+          }
         }
       },
     }),
@@ -109,10 +96,4 @@ export const authApi = baseApi.injectEndpoints({
   }),
 })
 
-export const {
-  useLoginMutation,
-  useRegisterMutation,
-  useLogoutMutation,
-  useRefreshMutation,
-  useMeQuery,
-} = authApi
+export const { useLoginMutation, useLogoutMutation, useRefreshMutation, useMeQuery } = authApi

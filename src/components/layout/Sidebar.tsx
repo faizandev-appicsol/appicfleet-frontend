@@ -18,7 +18,7 @@ type NavItem = {
 }
 
 const navigation: NavItem[] = [
-  { to: appConfig.routes.home, label: 'Overview', icon: OverviewIcon, end: true },
+  { to: appConfig.routes.home, label: 'Dashboard', icon: OverviewIcon, end: true },
   { to: appConfig.routes.users, label: 'Users', icon: UsersIcon, roles: userDirectoryRoles },
 ]
 
@@ -41,18 +41,25 @@ export function Sidebar() {
       ) : null}
       <aside
         className={cn(
-          'bg-sidebar text-sidebar-ink fixed inset-y-0 left-0 z-30 flex w-64 flex-col transition-transform lg:static lg:translate-x-0',
+          'bg-sidebar text-sidebar-ink fixed inset-y-0 left-0 z-[var(--z-sidebar)] flex h-svh w-[var(--sidebar-width)] flex-col overflow-hidden motion-safe:transition-[width,transform] motion-safe:duration-moderate motion-safe:ease-emphasized lg:sticky lg:top-0 lg:translate-x-0',
           mobileOpen ? 'translate-x-0' : '-translate-x-full',
-          collapsed && 'lg:w-16',
+          collapsed && 'lg:w-[var(--sidebar-width-collapsed)]',
         )}
       >
         <div
           className={cn(
-            'flex h-16 items-center justify-between px-4',
+            'flex h-16 items-center justify-between px-4 motion-safe:transition-[padding,justify-content] motion-safe:duration-300',
             collapsed && 'lg:justify-center lg:px-2',
           )}
         >
-          <BrandMark className={cn(collapsed && 'lg:[&>span:last-child]:hidden')} />
+          <BrandMark
+            className={cn(
+              'min-w-0',
+              collapsed && 'lg:gap-0 lg:[&>span:last-child]:max-w-0 lg:[&>span:last-child]:opacity-0',
+              'lg:[&>span:last-child]:overflow-hidden lg:[&>span:last-child]:whitespace-nowrap lg:[&>span:last-child]:motion-safe:transition-[max-width,opacity,margin] lg:[&>span:last-child]:motion-safe:duration-300',
+              !collapsed && 'lg:[&>span:last-child]:max-w-48 lg:[&>span:last-child]:opacity-100',
+            )}
+          />
           <button
             type="button"
             className="text-sidebar-ink inline-flex size-9 items-center justify-center rounded-md hover:bg-white/10 lg:hidden"
@@ -74,14 +81,23 @@ export function Sidebar() {
                 onClick={() => dispatch(setMobileNavOpen(false))}
                 className={({ isActive }) =>
                   cn(
-                    'text-sidebar-muted hover:text-sidebar-ink flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium hover:bg-white/8',
+                    'text-sidebar-muted hover:text-sidebar-ink flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium hover:bg-white/8 motion-safe:transition-[padding,gap,background-color,color] motion-safe:duration-300',
                     isActive && 'text-sidebar-ink bg-white/12',
-                    collapsed && 'lg:justify-center lg:px-2',
+                    collapsed && 'lg:justify-center lg:gap-0 lg:px-2',
                   )
                 }
               >
-                <Icon />
-                <span className={cn(collapsed && 'lg:sr-only')}>{item.label}</span>
+                <Icon className="size-5 shrink-0" />
+                <span
+                  className={cn(
+                    'overflow-hidden whitespace-nowrap motion-safe:transition-[max-width,opacity] motion-safe:duration-300',
+                    collapsed
+                      ? 'lg:max-w-0 lg:opacity-0'
+                      : 'max-w-40 opacity-100',
+                  )}
+                >
+                  {item.label}
+                </span>
               </NavLink>
             )
           })}
@@ -89,11 +105,31 @@ export function Sidebar() {
         <div className="p-3">
           <button
             type="button"
-            className="text-sidebar-muted hover:text-sidebar-ink hidden w-full rounded-md px-3 py-2 text-left text-xs font-medium hover:bg-white/8 lg:block"
+            className={cn(
+              'text-sidebar-muted hover:text-sidebar-ink hidden w-full items-center gap-2 rounded-md px-3 py-2 text-left text-xs font-medium hover:bg-white/8 motion-safe:transition-[padding,justify-content] motion-safe:duration-300 lg:flex',
+              collapsed && 'lg:justify-center lg:px-2',
+            )}
             onClick={() => dispatch(setSidebarCollapsed(!collapsed))}
+            aria-expanded={!collapsed}
+            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
-            {collapsed ? <span className="sr-only">Expand sidebar</span> : 'Collapse'}
-            {collapsed ? <span aria-hidden="true">»</span> : null}
+            <span
+              aria-hidden="true"
+              className={cn(
+                'inline-block text-sm motion-safe:transition-transform motion-safe:duration-300',
+                collapsed ? 'rotate-0' : 'rotate-180',
+              )}
+            >
+              »
+            </span>
+            <span
+              className={cn(
+                'overflow-hidden whitespace-nowrap motion-safe:transition-[max-width,opacity] motion-safe:duration-300',
+                collapsed ? 'max-w-0 opacity-0' : 'max-w-24 opacity-100',
+              )}
+            >
+              Collapse
+            </span>
           </button>
         </div>
       </aside>

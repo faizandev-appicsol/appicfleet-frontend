@@ -137,12 +137,11 @@ The user list provides both the list tag and one `User` tag per row. Updating on
 Auth HTTP lives in `src/features/auth/api/authApi.ts`:
 
 - `POST /auth/login`
-- `POST /auth/register`
 - `POST /auth/logout`
 - `POST /auth/refresh`
 - `GET /auth/me`
 
-Login and registration expect:
+Login expects:
 
 ```json
 {
@@ -168,7 +167,7 @@ request
   -> if refresh fails, or the retry is still 401, clear the session
 ```
 
-Login, registration, logout, and refresh do not try to refresh themselves. A wrong password stays on the form.
+Login, logout, and refresh do not try to refresh themselves. A wrong password stays on the form.
 
 Logout calls the API, then always clears the local session and the RTK Query cache, including when the network call fails.
 
@@ -178,7 +177,7 @@ Logout calls the API, then always clears the local session and the RTK Query cac
 
 | Route | Access |
 | --- | --- |
-| `/login`, `/register` | public; signed-in people are sent home |
+| `/login` | public; signed-in people are sent home |
 | `/` | any authenticated session |
 | `/users`, `/users/:userId` | authenticated, role `admin` or `manager` |
 | `/unauthorized` | authenticated |

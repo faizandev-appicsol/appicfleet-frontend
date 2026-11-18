@@ -2,8 +2,27 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/**
+ * Bridge design tokens into Tailwind utilities.
+ * Prefer semantic utilities (text-ink, bg-brand, shadow-modal, duration-normal).
+ */
 @theme inline {
-  --font-sans: 'IBM Plex Sans', 'Segoe UI', sans-serif;
+  /* Fonts */
+  --font-sans: var(--font-family-sans);
+  --font-display: var(--font-family-display);
+
+  /* Type scale */
+  --text-xs: var(--font-size-xs);
+  --text-sm: var(--font-size-sm);
+  --text-md: var(--font-size-md);
+  --text-base: var(--font-size-base);
+  --text-lg: var(--font-size-lg);
+  --text-xl: var(--font-size-xl);
+  --text-2xl: var(--font-size-2xl);
+  --text-3xl: var(--font-size-3xl);
+  --text-4xl: var(--font-size-4xl);
+
+  /* Colors */
   --color-canvas: var(--ui-canvas);
   --color-surface: var(--ui-surface);
   --color-ink: var(--ui-ink);
@@ -25,4 +44,36 @@
   --color-sidebar: var(--ui-sidebar);
   --color-sidebar-ink: var(--ui-sidebar-ink);
   --color-sidebar-muted: var(--ui-sidebar-muted);
+
+  /* Radii */
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+  --radius-2xl: var(--radius-2xl);
+  --radius-3xl: var(--radius-3xl);
+
+  /* Shadows */
+  --shadow-xs: var(--shadow-xs);
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --shadow-modal: var(--shadow-modal);
+
+  /* Motion */
+  --ease-standard: var(--ease-standard);
+  --ease-emphasized: var(--ease-emphasized);
+  --ease-entrance: var(--ease-entrance);
+  --ease-exit: var(--ease-exit);
+  --duration-fast: var(--duration-fast);
+  --duration-normal: var(--duration-normal);
+  --duration-moderate: var(--duration-moderate);
+  --duration-slow: var(--duration-slow);
+  --duration-slower: var(--duration-slower);
+
+  /* Animations */
+  --animate-fade-up: ui-fade-up var(--duration-slower) var(--ease-emphasized) both;
+  --animate-fade-in: ui-fade-in var(--duration-normal) var(--ease-standard) both;
+  --animate-scale-in: ui-scale-in var(--duration-moderate) var(--ease-emphasized) both;
+  --animate-spin: ui-spin 0.75s linear infinite;
 }

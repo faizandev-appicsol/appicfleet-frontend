@@ -17,7 +17,7 @@ function greeting(date: Date): string {
 }
 
 export function DashboardPage() {
-  useDocumentTitle('Overview')
+  useDocumentTitle('Dashboard')
   const { user } = useAuth()
   const canManageUsers = hasAnyRole(user?.roles, userDirectoryRoles)
 

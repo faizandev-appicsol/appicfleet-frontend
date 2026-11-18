@@ -28,12 +28,6 @@ export type LoginRequest = {
   password: string
 }
 
-export type RegisterRequest = {
-  name: string
-  email: string
-  password: string
-}
-
 const DEFAULT_ACCESS_TOKEN_SECONDS = 900
 
 export function parseAuthSession(data: unknown): AuthSession | null {

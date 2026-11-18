@@ -10,7 +10,13 @@ import { isRecord } from '@/lib/utils/typeGuards'
 
 let inFlight: Promise<AuthSession | null> | null = null
 
+function isUnauthenticated(state: unknown): boolean {
+  return isRecord(state) && isRecord(state.auth) && state.auth.status === 'unauthenticated'
+}
+
 async function executeRefresh(api: BaseQueryApi): Promise<AuthSession | null> {
+  if (isUnauthenticated(api.getState())) return null
+
   const refreshToken = tokenStorage.getRefreshToken()
   const result = await rawBaseQuery(
     {
@@ -22,6 +28,7 @@ async function executeRefresh(api: BaseQueryApi): Promise<AuthSession | null> {
     {},
   )
 
+  if (isUnauthenticated(api.getState())) return null
   if (result.error) return null
   return parseAuthSession(result.data)
 }
@@ -36,7 +43,12 @@ export function requestRefresh(api: BaseQueryApi): Promise<AuthSession | null> {
   return inFlight
 }
 
-export function rememberSession(dispatch: Dispatch, session: AuthSession): void {
+export function rememberSession(
+  dispatch: Dispatch,
+  session: AuthSession,
+  state?: unknown,
+): void {
+  if (state !== undefined && isUnauthenticated(state)) return
   if (session.refreshToken) tokenStorage.setRefreshToken(session.refreshToken)
   dispatch(
     setSession({
@@ -48,7 +60,7 @@ export function rememberSession(dispatch: Dispatch, session: AuthSession): void 
 }
 
 function endSession(dispatch: Dispatch, state: unknown): void {
-  if (isRecord(state) && isRecord(state.auth) && state.auth.status === 'unauthenticated') return
+  if (isUnauthenticated(state)) return
   dispatch(clearSession())
 }
 
@@ -59,11 +71,14 @@ registerReauthHandler(async (api) => {
     return false
   }
 
-  rememberSession(api.dispatch, session)
+  rememberSession(api.dispatch, session, api.getState())
   return true
 })
 
+export function cancelInFlightRefresh(): void {
+  inFlight = null
+}
+
 skipReauthFor(AUTH_ENDPOINTS.login)
-skipReauthFor(AUTH_ENDPOINTS.register)
 skipReauthFor(AUTH_ENDPOINTS.logout)
 skipReauthFor(AUTH_ENDPOINTS.refresh)

@@ -12,7 +12,7 @@ function isUnauthenticated(state: unknown): boolean {
  * Shared query used by every feature endpoint.
  *
  * 401 from a normal request refreshes the session once and retries.
- * Login, register, logout, and refresh opt out through the reauth registry.
+ * Login, logout, and refresh opt out through the reauth registry.
  * A failed refresh, or a retry that is still unauthorized, ends the session.
  */
 export const baseQuery: BaseQueryFn<

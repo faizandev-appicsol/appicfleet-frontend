@@ -12,7 +12,7 @@ export function UnauthorizedPage() {
       <h1 className="text-ink mt-2 text-2xl font-semibold tracking-tight">Unauthorized</h1>
       <p className="text-muted mt-2 text-sm">Your account does not have access to that page.</p>
       <Link to={appConfig.routes.home} className={buttonClassName({ className: 'mt-6' })}>
-        Back to overview
+        Back to dashboard
       </Link>
     </div>
   )

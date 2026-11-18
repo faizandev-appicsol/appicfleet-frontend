@@ -13,7 +13,7 @@ export function NotFoundPage() {
         <h1 className="text-ink mt-2 text-2xl font-semibold tracking-tight">Page not found</h1>
         <p className="text-muted mt-2 text-sm">That address is not part of the console.</p>
         <Link to={appConfig.routes.home} className={buttonClassName({ className: 'mt-6' })}>
-          Back to overview
+          Back to dashboard
         </Link>
       </div>
     </div>

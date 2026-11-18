@@ -10,9 +10,6 @@ import { userDirectoryRoles } from '@/app/router/access'
 const LoginPage = lazy(() =>
   import('@/features/auth/pages/LoginPage').then((module) => ({ default: module.LoginPage })),
 )
-const RegisterPage = lazy(() =>
-  import('@/features/auth/pages/RegisterPage').then((module) => ({ default: module.RegisterPage })),
-)
 const DashboardPage = lazy(() =>
   import('@/features/dashboard/pages/DashboardPage').then((module) => ({
     default: module.DashboardPage,
@@ -39,7 +36,6 @@ export function AppRoutes() {
       <Routes>
         <Route element={<PublicOnlyRoute />}>
           <Route path="login" element={<LoginPage />} />
-          <Route path="register" element={<RegisterPage />} />
         </Route>
 
         <Route element={<ProtectedRoute />}>

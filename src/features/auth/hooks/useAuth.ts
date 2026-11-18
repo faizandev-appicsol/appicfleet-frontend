@@ -1,8 +1,9 @@
 import { useNavigate } from 'react-router'
+import { useAppDispatch, useAppSelector } from '@/app/hooks'
 import { appConfig } from '@/config/app.config'
 import { useLogoutMutation } from '@/features/auth/api/authApi'
+import { cancelInFlightRefresh } from '@/features/auth/api/refreshSession'
 import { clearSession } from '@/features/auth/slices/authSlice'
-import { useAppDispatch, useAppSelector } from '@/app/hooks'
 
 export function useAuth() {
   const dispatch = useAppDispatch()
@@ -12,10 +13,12 @@ export function useAuth() {
   const [logoutRequest, { isLoading: isLoggingOut }] = useLogoutMutation()
 
   const logout = async () => {
+    cancelInFlightRefresh()
+
     try {
       await logoutRequest().unwrap()
     } catch {
-      // The local session still ends when the server cannot be reached.
+      // Local session still ends when the server cannot be reached.
     }
 
     dispatch(clearSession())
