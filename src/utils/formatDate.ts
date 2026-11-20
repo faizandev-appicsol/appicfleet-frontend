@@ -1,8 +1,8 @@
-export function formatDateTime(value: string): string {
+export function formatDateTime(value: string, locale?: string): string {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return value
 
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat(locale, {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(date)

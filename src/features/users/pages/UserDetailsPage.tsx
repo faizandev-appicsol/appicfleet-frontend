@@ -10,17 +10,22 @@ import { Modal, ModalActions } from '@/components/ui/Modal'
 import { ErrorState } from '@/components/feedback/ErrorState'
 import { LoadingState } from '@/components/feedback/LoadingState'
 import { PageHeader } from '@/components/layout/PageHeader'
+import { PERMISSIONS } from '@/app/router/access'
 import { appConfig } from '@/config/app.config'
+import { useRoleLabel } from '@/features/auth/hooks/useRoleLabel'
+import { usePermissions } from '@/features/auth/hooks/usePermissions'
+import { useBranchOptions } from '@/features/branches/hooks/useBranchOptions'
+import { useOrganizationOptions } from '@/features/organizations/hooks/useOrganizationOptions'
 import {
   useDeleteUserMutation,
   useGetUserQuery,
   useUpdateUserMutation,
 } from '@/features/users/api/usersApi'
+import { useUserOptions } from '@/features/users/hooks/useUserOptions'
 import {
-  USER_ROLE_OPTIONS,
-  USER_STATUS_OPTIONS,
   isUserRole,
   isUserStatus,
+  normalizeUserStatus,
   userUpdateSchema,
   type User,
   type UserRole,
@@ -28,63 +33,134 @@ import {
   type UserUpdateValues,
 } from '@/features/users/schemas/user.schema'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
+import { useTranslation } from '@/i18n'
 import { normalizeApiError } from '@/lib/api/apiError'
 import { applyApiFieldErrors } from '@/utils/forms'
 import { formatDateTime } from '@/utils/formatDate'
 
 export function UserDetailsPage() {
+  const { t, tm } = useTranslation()
   const { userId } = useParams()
   const query = useGetUserQuery(userId ?? '', { skip: !userId })
-  useDocumentTitle(query.data?.name ?? 'User')
+  useDocumentTitle(query.data?.name ?? t('users.detail.title'))
 
   if (!userId) {
-    return <ErrorState error={new Error('This user address is missing an id.')} />
+    return <ErrorState error={new Error(tm('users.detail.missingId'))} />
   }
 
   return (
     <>
       <PageHeader
-        title={query.data?.name ?? 'User'}
-        description="Review and update this person's access."
+        title={query.data?.name ?? t('users.detail.title')}
+        description={t('users.detail.description')}
         action={
           <Link
             to={appConfig.routes.users}
             className="text-brand hover:text-brand-strong text-sm font-medium"
           >
-            Back to users
+            {t('users.detail.back')}
           </Link>
         }
       />
-      {query.isLoading ? <LoadingState label="Loading user" /> : null}
+      {query.isLoading ? <LoadingState label={t('users.detail.loading')} /> : null}
       {query.error ? <ErrorState error={query.error} onRetry={query.refetch} /> : null}
       {query.data ? <UserDetails user={query.data} /> : null}
     </>
   )
 }
 
-function isEditableUser(user: User): user is User & { role: UserRole; status: UserStatus } {
-  return isUserRole(user.role) && isUserStatus(user.status)
+function isEditableUser(user: User): boolean {
+  return isUserRole(user.role) && isUserStatus(normalizeUserStatus(user.status))
 }
 
 function UserDetails({ user }: { user: User }) {
+  const { t } = useTranslation()
+  const roleLabel = useRoleLabel()
+  const { can } = usePermissions()
+  const canUpdate = can(PERMISSIONS.usersUpdate)
+  const canDelete = can(PERMISSIONS.usersDeactivate)
+
   return (
     <div className="grid gap-4">
       {isEditableUser(user) ? (
-        <EditUserForm user={user} role={user.role} status={user.status} />
+        <EditUserForm
+          user={user}
+          role={user.role as UserRole}
+          status={normalizeUserStatus(user.status) as UserStatus}
+          canUpdate={canUpdate}
+        />
       ) : (
-        <Card title="Profile">
+        <Card title={t('users.detail.profile')}>
           <p className="text-muted text-sm">
-            This record uses a role or status the form does not edit. Current role: {user.role}.
-            Current status: {user.status}.
+            {t('users.detail.unsupported', {
+              role: roleLabel(user.role),
+              status: t(`status.${normalizeUserStatus(user.status) as UserStatus}`),
+            })}
           </p>
         </Card>
       )}
-      <DeleteUser userId={user.id} name={user.name} />
+      <AccessScope user={user} />
+      {canDelete ? <DeleteUser userId={user.id} name={user.name} /> : null}
     </div>
   )
 }
 
-function EditUserForm({ user, role, status }: { user: User; role: UserRole; status: UserStatus }) {
+function AccessScope({ user }: { user: User }) {
+  const { t } = useTranslation()
+  const organizations = useOrganizationOptions()
+  const branches = useBranchOptions()
+
+  const organization = user.accessAllOrganizations
+    ? t('users.detail.allOrganizations')
+    : user.organizationId
+      ? (organizations.nameById.get(user.organizationId) ?? user.organizationId)
+      : t('users.detail.noOrganization')
+
+  return (
+    <Card title={t('users.detail.access')}>
+      <dl className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-1">
+          <dt className="text-muted text-xs font-medium tracking-wide uppercase">
+            {t('users.detail.organization')}
+          </dt>
+          <dd className="text-ink text-sm">{organization}</dd>
+        </div>
+        <div className="grid gap-1">
+          <dt className="text-muted text-xs font-medium tracking-wide uppercase">
+            {t('users.detail.branches')}
+          </dt>
+          <dd className="text-ink text-sm">
+            {user.accessAllBranches ? (
+              t('users.detail.allBranches')
+            ) : user.branchIds.length > 0 ? (
+              <ul className="grid gap-1">
+                {user.branchIds.map((id) => (
+                  <li key={id}>{branches.nameById.get(id) ?? id}</li>
+                ))}
+              </ul>
+            ) : (
+              <span className="text-muted">{t('users.detail.noBranches')}</span>
+            )}
+          </dd>
+        </div>
+      </dl>
+    </Card>
+  )
+}
+
+function EditUserForm({
+  user,
+  role,
+  status,
+  canUpdate,
+}: {
+  user: User
+  role: UserRole
+  status: UserStatus
+  canUpdate: boolean
+}) {
+  const { t, tm, locale } = useTranslation()
+  const { roleOptions, statusOptions } = useUserOptions()
   const [updateUser] = useUpdateUserMutation()
   const [saved, setSaved] = useState(false)
   const form = useForm<UserUpdateValues>({
@@ -110,51 +186,63 @@ function EditUserForm({ user, role, status }: { user: User; role: UserRole; stat
     }
   })
 
+  const errors = form.formState.errors
+
   return (
-    <Card title="Profile" description={`Created ${formatDateTime(user.createdAt)}`}>
+    <Card
+      title={t('users.detail.profile')}
+      description={t('users.detail.createdOn', { date: formatDateTime(user.createdAt, locale) })}
+    >
       <form className="grid gap-4" noValidate onSubmit={onSubmit}>
-        {form.formState.errors.root ? (
-          <Alert tone="danger">{form.formState.errors.root.message}</Alert>
-        ) : null}
-        {saved ? <Alert tone="success">User updated.</Alert> : null}
+        {errors.root ? <Alert tone="danger">{tm(errors.root.message)}</Alert> : null}
+        {saved ? <Alert tone="success">{t('users.detail.saved')}</Alert> : null}
+        {!canUpdate ? <Alert tone="info">{t('users.detail.readOnly')}</Alert> : null}
         <Input
-          label="Name"
+          label={t('users.form.name')}
           required
-          error={form.formState.errors.name?.message}
+          disabled={!canUpdate}
+          error={tm(errors.name?.message)}
           {...form.register('name')}
         />
         <Input
-          label="Email"
+          label={t('users.form.email')}
           type="email"
           required
-          error={form.formState.errors.email?.message}
+          dir="ltr"
+          disabled={!canUpdate}
+          error={tm(errors.email?.message)}
           {...form.register('email')}
         />
         <div className="grid gap-4 sm:grid-cols-2">
           <Select
-            label="Role"
-            options={USER_ROLE_OPTIONS}
-            error={form.formState.errors.role?.message}
+            label={t('users.form.role')}
+            options={roleOptions}
+            disabled={!canUpdate}
+            error={tm(errors.role?.message)}
             {...form.register('role')}
           />
           <Select
-            label="Status"
-            options={USER_STATUS_OPTIONS}
-            error={form.formState.errors.status?.message}
+            label={t('users.form.status')}
+            options={statusOptions}
+            disabled={!canUpdate}
+            error={tm(errors.status?.message)}
             {...form.register('status')}
           />
         </div>
-        <div className="flex justify-end">
-          <Button type="submit" loading={form.formState.isSubmitting}>
-            Save changes
-          </Button>
-        </div>
+        {canUpdate ? (
+          <div className="flex justify-end">
+            <Button type="submit" loading={form.formState.isSubmitting}>
+              {t('common.saveChanges')}
+            </Button>
+          </div>
+        ) : null}
       </form>
     </Card>
   )
 }
 
 function DeleteUser({ userId, name }: { userId: string; name: string }) {
+  const { t, tm } = useTranslation()
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const [deleteUser, deleteState] = useDeleteUserMutation()
@@ -169,19 +257,19 @@ function DeleteUser({ userId, name }: { userId: string; name: string }) {
   }
 
   return (
-    <Card title="Remove user" description="This revokes console access for this person.">
+    <Card title={t('users.remove.cardTitle')} description={t('users.remove.cardDescription')}>
       <Button type="button" variant="danger" onClick={() => setOpen(true)}>
-        Delete user
+        {t('users.remove.button')}
       </Button>
       <Modal
         open={open}
-        title={`Delete ${name}?`}
-        description="This cannot be undone from the console."
+        title={t('users.remove.title', { name })}
+        description={t('users.remove.description')}
         onClose={() => setOpen(false)}
       >
         <div className="grid gap-4">
           {deleteState.error ? (
-            <Alert tone="danger">{normalizeApiError(deleteState.error).message}</Alert>
+            <Alert tone="danger">{tm(normalizeApiError(deleteState.error).message)}</Alert>
           ) : null}
           <ModalActions>
             <Button
@@ -190,7 +278,7 @@ function DeleteUser({ userId, name }: { userId: string; name: string }) {
               onClick={() => setOpen(false)}
               disabled={deleteState.isLoading}
             >
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button
               type="button"
@@ -198,7 +286,7 @@ function DeleteUser({ userId, name }: { userId: string; name: string }) {
               loading={deleteState.isLoading}
               onClick={() => void onDelete()}
             >
-              Delete user
+              {t('users.remove.button')}
             </Button>
           </ModalActions>
         </div>

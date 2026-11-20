@@ -48,7 +48,7 @@ export function Menu({ label, children, variant = 'ghost' }: MenuProps) {
         <div
           id={menuId}
           role="menu"
-          className="border-line bg-surface absolute right-0 z-30 mt-2 min-w-48 rounded-md border p-1 shadow-lg"
+          className="border-line bg-surface absolute end-0 z-[var(--z-dropdown)] mt-2 min-w-48 rounded-md border p-1 shadow-lg"
         >
           {children}
         </div>
@@ -72,9 +72,12 @@ export function MenuItem({
       role="menuitem"
       disabled={disabled}
       className={cn(
-        'text-ink hover:bg-canvas flex w-full rounded px-3 py-2 text-left text-sm disabled:opacity-60',
+        'text-ink hover:bg-control flex w-full cursor-pointer rounded-lg px-3 py-2 text-start text-sm disabled:cursor-not-allowed disabled:opacity-60 dark:hover:bg-white/8',
       )}
-      onClick={onSelect}
+      onClick={() => {
+        if (disabled) return
+        onSelect()
+      }}
     >
       {children}
     </button>

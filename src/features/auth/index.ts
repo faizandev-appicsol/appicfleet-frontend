@@ -1,3 +1,4 @@
-export { hasAnyRole } from './access'
+export { hasAnyPermission, hasAnyRole, hasPermission } from './access'
 export { useAuth } from './hooks/useAuth'
-export type { AuthSession, LoginRequest, SessionUser } from './types/auth.types'
+export { usePermissions } from './hooks/usePermissions'
+export type { AuthSession, LoginRequest, ProfileResource, SessionUser } from './types/auth.types'

@@ -44,6 +44,7 @@
   --color-sidebar: var(--ui-sidebar);
   --color-sidebar-ink: var(--ui-sidebar-ink);
   --color-sidebar-muted: var(--ui-sidebar-muted);
+  --color-control: var(--ui-control);
 
   /* Radii */
   --radius-sm: var(--radius-sm);
@@ -59,6 +60,9 @@
   --shadow-md: var(--shadow-md);
   --shadow-lg: var(--shadow-lg);
   --shadow-modal: var(--shadow-modal);
+  --shadow-card: var(--shadow-card);
+  --shadow-brand: var(--shadow-brand);
+  --shadow-glow: var(--shadow-glow);
 
   /* Motion */
   --ease-standard: var(--ease-standard);

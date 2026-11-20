@@ -1,29 +1,28 @@
+import { API_ENDPOINTS } from '@/config/constants'
 import { USERS_PAGE_SIZE } from '@/features/users/constants'
 import {
   userListSchema,
   userResponseSchema,
   type User,
-  type UserFormValues,
+  type UserCreateBody,
   type UserListQuery,
   type UserUpdateValues,
 } from '@/features/users/schemas/user.schema'
 import { baseApi } from '@/lib/api/baseApi'
+import { parseResource } from '@/lib/api/envelope'
+import { buildListParams } from '@/lib/api/params'
 import type { Paginated } from '@/types/pagination'
+
+const LOAD_ERROR = 'users.loadError'
 
 export const usersApi = baseApi.injectEndpoints({
   endpoints: (builder) => ({
     getUsers: builder.query<Paginated<User>, UserListQuery>({
       query: (query) => ({
-        url: '/users',
-        params: toUserQuery(query),
+        url: API_ENDPOINTS.users,
+        params: buildListParams({ ...query, pageSize: query.pageSize ?? USERS_PAGE_SIZE }),
       }),
-      transformResponse: (response: unknown) => {
-        const parsed = userListSchema.safeParse(response)
-        if (!parsed.success) {
-          throw new Error('The user directory response did not match the expected shape.')
-        }
-        return parsed.data
-      },
+      transformResponse: (response: unknown) => parseResource(userListSchema, response, LOAD_ERROR),
       providesTags: (result) =>
         result
           ? [
@@ -33,32 +32,40 @@ export const usersApi = baseApi.injectEndpoints({
           : [{ type: 'Users' as const, id: 'LIST' }],
     }),
     getUser: builder.query<User, string>({
-      query: (id) => `/users/${encodeURIComponent(id)}`,
-      transformResponse: (response: unknown) => parseUser(response),
+      query: (id) => `${API_ENDPOINTS.users}/${encodeURIComponent(id)}`,
+      transformResponse: (response: unknown) =>
+        parseResource(userResponseSchema, response, LOAD_ERROR),
       providesTags: (_result, _error, id) => [{ type: 'User', id }],
     }),
-    createUser: builder.mutation<User, UserFormValues>({
+    createUser: builder.mutation<User, UserCreateBody>({
       query: (body) => ({
-        url: '/users',
+        url: API_ENDPOINTS.users,
         method: 'POST',
         body,
       }),
-      transformResponse: (response: unknown) => parseUser(response),
+      transformResponse: (response: unknown) =>
+        parseResource(userResponseSchema, response, LOAD_ERROR),
       invalidatesTags: (_result, error) => (error ? [] : [{ type: 'Users', id: 'LIST' }]),
     }),
     updateUser: builder.mutation<User, { id: string; body: UserUpdateValues }>({
       query: ({ id, body }) => ({
-        url: `/users/${encodeURIComponent(id)}`,
+        url: `${API_ENDPOINTS.users}/${encodeURIComponent(id)}`,
         method: 'PATCH',
         body,
       }),
-      transformResponse: (response: unknown) => parseUser(response),
+      transformResponse: (response: unknown) =>
+        parseResource(userResponseSchema, response, LOAD_ERROR),
       invalidatesTags: (_result, error, argument) =>
-        error ? [] : [{ type: 'User', id: argument.id }],
+        error
+          ? []
+          : [
+              { type: 'User', id: argument.id },
+              { type: 'Users', id: 'LIST' },
+            ],
     }),
     deleteUser: builder.mutation<void, string>({
       query: (id) => ({
-        url: `/users/${encodeURIComponent(id)}`,
+        url: `${API_ENDPOINTS.users}/${encodeURIComponent(id)}`,
         method: 'DELETE',
       }),
       invalidatesTags: (_result, error, id) =>
@@ -71,22 +78,6 @@ export const usersApi = baseApi.injectEndpoints({
     }),
   }),
 })
-
-function parseUser(response: unknown): User {
-  const parsed = userResponseSchema.safeParse(response)
-  if (!parsed.success) throw new Error('The user response did not match the expected shape.')
-  return parsed.data
-}
-
-function toUserQuery(query: UserListQuery): Record<string, string | number> {
-  const params: Record<string, string | number> = {
-    page: query.page ?? 1,
-    pageSize: query.pageSize ?? USERS_PAGE_SIZE,
-  }
-  const search = query.search?.trim()
-  if (search) params.search = search
-  return params
-}
 
 export const {
   useGetUsersQuery,

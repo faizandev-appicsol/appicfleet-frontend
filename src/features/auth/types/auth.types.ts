@@ -1,10 +1,41 @@
 import { z } from 'zod'
 
+/**
+ * Principal stored in the client session. Module 3 fields default so sessions cached
+ * before the tenancy/RBAC upgrade still parse (they just carry no permissions).
+ */
 export const sessionUserSchema = z.object({
   id: z.string().min(1),
   email: z.string().min(1),
   name: z.string().min(1),
-  roles: z.array(z.string()),
+  roles: z.array(z.string()).default([]),
+  permissions: z.array(z.string()).default([]),
+  organizationId: z.string().nullable().optional().default(null),
+  branchIds: z.array(z.string()).default([]),
+  legalEntityIds: z.array(z.string()).default([]),
+  accessAllBranches: z.boolean().optional().default(false),
+  accessAllOrganizations: z.boolean().optional().default(false),
+})
+
+const organizationSummarySchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  code: z.string(),
+})
+
+const branchSummarySchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  code: z.string(),
+})
+
+/** GET /auth/me */
+export const profileSchema = sessionUserSchema.extend({
+  phone: z.string().nullable().optional(),
+  status: z.string().optional().default('active'),
+  lastLoginAt: z.string().nullable().optional().default(null),
+  organization: organizationSummarySchema.nullable().optional().default(null),
+  branches: z.array(branchSummarySchema).optional().default([]),
 })
 
 export const sessionResponseSchema = z.object({
@@ -15,6 +46,7 @@ export const sessionResponseSchema = z.object({
 })
 
 export type SessionUser = z.infer<typeof sessionUserSchema>
+export type ProfileResource = z.infer<typeof profileSchema>
 
 export type AuthSession = {
   accessToken: string

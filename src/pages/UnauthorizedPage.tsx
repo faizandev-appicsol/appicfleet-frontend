@@ -1,19 +1,22 @@
 import { Link } from 'react-router'
 import { buttonClassName } from '@/components/ui/buttonStyles'
+import { PermissionDeniedState } from '@/components/feedback/PermissionDeniedState'
+import { PageHeader } from '@/components/layout/PageHeader'
 import { appConfig } from '@/config/app.config'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
+import { useTranslation } from '@/i18n'
 
 export function UnauthorizedPage() {
-  useDocumentTitle('Unauthorized')
+  const { t } = useTranslation()
+  useDocumentTitle(t('feedback.permissionTitle'))
 
   return (
-    <div className="max-w-lg">
-      <p className="text-muted text-sm font-medium">403</p>
-      <h1 className="text-ink mt-2 text-2xl font-semibold tracking-tight">Unauthorized</h1>
-      <p className="text-muted mt-2 text-sm">Your account does not have access to that page.</p>
-      <Link to={appConfig.routes.home} className={buttonClassName({ className: 'mt-6' })}>
-        Back to dashboard
+    <>
+      <PageHeader title={t('feedback.permissionTitle')} />
+      <PermissionDeniedState />
+      <Link to={appConfig.routes.home} className={buttonClassName({ variant: 'secondary' })}>
+        {t('navigation.dashboard')}
       </Link>
-    </div>
+    </>
   )
 }

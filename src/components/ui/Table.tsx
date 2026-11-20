@@ -1,10 +1,16 @@
 import type { ReactNode } from 'react'
 import { cn } from '@/utils/cn'
 
-export function Table({ children }: { children: ReactNode }) {
+export function Table({
+  children,
+  className,
+}: {
+  children: ReactNode
+  className?: string
+}) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full border-collapse text-left text-sm">{children}</table>
+      <table className={cn('w-full border-collapse text-start text-sm', className)}>{children}</table>
     </div>
   )
 }
@@ -22,13 +28,17 @@ export function TBody({ children }: { children: ReactNode }) {
 }
 
 export function TR({ children }: { children: ReactNode }) {
-  return <tr className="align-middle">{children}</tr>
+  return <tr>{children}</tr>
 }
 
 export function TH({ children, className }: { children: ReactNode; className?: string }) {
-  return <th className={cn('px-4 py-3 font-medium', className)}>{children}</th>
+  return (
+    <th className={cn('px-4 py-3 text-start align-middle font-medium whitespace-nowrap', className)}>
+      {children}
+    </th>
+  )
 }
 
 export function TD({ children, className }: { children: ReactNode; className?: string }) {
-  return <td className={cn('text-ink px-4 py-3', className)}>{children}</td>
+  return <td className={cn('text-ink px-4 py-3 text-start align-top', className)}>{children}</td>
 }

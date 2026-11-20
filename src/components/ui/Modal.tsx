@@ -2,8 +2,11 @@ import { useEffect, useId, useLayoutEffect, useState, type ReactNode } from 'rea
 import { createPortal } from 'react-dom'
 import { Button } from '@/components/ui/Button'
 import { CloseIcon } from '@/components/ui/icons'
+import { useTranslation } from '@/i18n'
 import { cn } from '@/utils/cn'
 import '@/components/ui/modal.css'
+
+type ModalSize = 'default' | 'medium' | 'wide'
 
 type ModalProps = {
   open: boolean
@@ -11,9 +14,15 @@ type ModalProps = {
   description?: string
   onClose: () => void
   children: ReactNode
+  /**
+   * `default` is a confirmation. `medium` fits a short form.
+   * `wide` grows with the viewport for multi-column forms.
+   */
+  size?: ModalSize
 }
 
-export function Modal({ open, title, description, onClose, children }: ModalProps) {
+export function Modal({ open, title, description, onClose, children, size = 'default' }: ModalProps) {
+  const { t } = useTranslation()
   const titleId = useId()
   const descriptionId = useId()
   const [mounted, setMounted] = useState(open)
@@ -73,7 +82,7 @@ export function Modal({ open, title, description, onClose, children }: ModalProp
       <button
         type="button"
         className={cn('ui-modal-backdrop', visible && 'ui-modal-backdrop-visible')}
-        aria-label="Close dialog"
+        aria-label={t('common.closeDialog')}
         onClick={onClose}
       />
       <div
@@ -81,7 +90,12 @@ export function Modal({ open, title, description, onClose, children }: ModalProp
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={description ? descriptionId : undefined}
-        className={cn('ui-modal-panel', visible && 'ui-modal-panel-visible')}
+        className={cn(
+          'ui-modal-panel',
+          size === 'medium' && 'ui-modal-panel-medium',
+          size === 'wide' && 'ui-modal-panel-wide',
+          visible && 'ui-modal-panel-visible',
+        )}
       >
         <div className="border-line flex items-start justify-between gap-3 border-b px-5 py-4">
           <div className="min-w-0">
@@ -97,13 +111,22 @@ export function Modal({ open, title, description, onClose, children }: ModalProp
           <button
             type="button"
             className="text-muted hover:text-ink hover:bg-canvas inline-flex size-9 shrink-0 cursor-pointer items-center justify-center rounded-md transition-colors"
-            aria-label="Close"
+            aria-label={t('common.close')}
             onClick={onClose}
           >
             <CloseIcon />
           </button>
         </div>
-        <div className="max-h-[min(70svh,32rem)] overflow-y-auto px-5 py-4">{children}</div>
+        <div
+          className={cn(
+            'overflow-y-auto px-5 py-4',
+            size === 'wide' && 'max-h-[min(78svh,44rem)] sm:px-6',
+            size === 'medium' && 'max-h-[min(76svh,38rem)]',
+            size === 'default' && 'max-h-[min(70svh,32rem)]',
+          )}
+        >
+          {children}
+        </div>
       </div>
     </div>,
     document.body,
@@ -121,9 +144,10 @@ export function ModalCloseButton({
   onClose: () => void
   disabled?: boolean
 }) {
+  const { t } = useTranslation()
   return (
     <Button type="button" variant="secondary" onClick={onClose} disabled={disabled}>
-      Cancel
+      {t('common.cancel')}
     </Button>
   )
 }

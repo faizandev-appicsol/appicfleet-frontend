@@ -1,21 +1,25 @@
 import { Outlet } from 'react-router'
-import { Header } from '@/components/layout/Header'
 import { Sidebar } from '@/components/layout/Sidebar'
+import { TopBar } from '@/components/layout/TopBar'
+import { useTranslation } from '@/i18n'
 
 export function AppShell() {
+  const { t } = useTranslation()
+
   return (
-    <div className="bg-canvas flex min-h-svh">
+    <div className="flex min-h-svh bg-transparent">
       <a
         href="#main"
-        className="focus:bg-surface sr-only focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-50 focus:rounded-md focus:px-3 focus:py-2"
+        className="focus:bg-surface sr-only focus:not-sr-only focus:absolute focus:top-3 focus:start-3 focus:z-[var(--z-max)] focus:rounded-md focus:px-3 focus:py-2"
       >
-        Skip to content
+        {t('common.skipToContent')}
       </a>
+      {/* Sidebar is first in DOM so flex + html[dir=rtl] places it on the right in Arabic. */}
       <Sidebar />
       <div className="flex min-w-0 flex-1 flex-col">
-        <Header />
-        <main id="main" className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
-          <div className="mx-auto grid w-full max-w-6xl gap-6">
+        <TopBar />
+        <main id="main" className="flex-1 px-3 py-5 sm:px-4 lg:px-5">
+          <div className="mx-auto grid w-full max-w-[var(--content-max-width)] gap-5">
             <Outlet />
           </div>
         </main>

@@ -1,10 +1,17 @@
+import { useAppDispatch } from '@/app/hooks'
 import { appConfig } from '@/config/app.config'
 import { LoginForm } from '@/features/auth/components/LoginForm'
 import '@/features/auth/styles/login.css'
+import { setLocale } from '@/features/ui/slices/uiSlice'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
+import { useTranslation } from '@/i18n'
 
 export function LoginPage() {
-  useDocumentTitle('Sign in')
+  const dispatch = useAppDispatch()
+  const { t, locale } = useTranslation()
+  useDocumentTitle(t('auth.pageTitle'))
+
+  const nextLocale = locale === 'ar' ? 'en' : 'ar'
 
   return (
     <div className="login-page login-backdrop flex min-h-svh items-center justify-center px-4 py-12 sm:px-6">
@@ -18,7 +25,7 @@ export function LoginPage() {
               {appConfig.name}
             </p>
             <p className="mt-1 text-xs tracking-[0.16em] text-[var(--login-muted)] uppercase">
-              Secure access
+              {t('auth.secureAccess')}
             </p>
           </div>
 
@@ -26,8 +33,18 @@ export function LoginPage() {
         </div>
 
         <p className="login-fade-up login-fade-up-delay-4 mt-6 text-center text-xs text-[var(--login-muted)]">
-          Authorized personnel only · Session protected
+          {t('auth.footer')}
         </p>
+        <div className="mt-3 flex justify-center">
+          <button
+            type="button"
+            lang={nextLocale}
+            className="text-xs font-medium text-[var(--login-muted)] underline-offset-4 hover:text-[var(--login-ink)] hover:underline"
+            onClick={() => dispatch(setLocale(nextLocale))}
+          >
+            {nextLocale === 'ar' ? 'العربية' : 'English'}
+          </button>
+        </div>
       </div>
     </div>
   )

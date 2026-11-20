@@ -1,27 +1,29 @@
 import { Link } from 'react-router'
-import { Badge, type BadgeTone } from '@/components/ui/Badge'
+import { StatusBadge } from '@/components/ui/StatusBadge'
 import { Table, TBody, TD, TH, THead, TR } from '@/components/ui/Table'
 import { appConfig } from '@/config/app.config'
+import { useRoleLabel } from '@/features/auth/hooks/useRoleLabel'
+import { normalizeUserStatus } from '@/features/users/schemas/user.schema'
 import type { User } from '@/features/users/types/user.types'
+import { useStatusOptions } from '@/hooks/useStatusOptions'
+import { useTranslation } from '@/i18n'
 import { formatDateTime } from '@/utils/formatDate'
 
-function statusTone(status: string): BadgeTone {
-  if (status === 'active') return 'success'
-  if (status === 'invited') return 'warning'
-  if (status === 'disabled') return 'danger'
-  return 'neutral'
-}
-
 export function UserTable({ users }: { users: User[] }) {
+  const { t, locale } = useTranslation()
+  const roleLabel = useRoleLabel()
+  const statusOptions = useStatusOptions()
+
   return (
     <div className="border-line bg-surface overflow-hidden rounded-lg border">
       <Table>
         <THead>
           <TR>
-            <TH>Name</TH>
-            <TH>Role</TH>
-            <TH>Status</TH>
-            <TH>Created</TH>
+            <TH>{t('users.columns.name')}</TH>
+            <TH>{t('users.columns.role')}</TH>
+            <TH>{t('users.columns.status')}</TH>
+            <TH>{t('users.columns.branches')}</TH>
+            <TH>{t('users.columns.created')}</TH>
           </TR>
         </THead>
         <TBody>
@@ -34,13 +36,24 @@ export function UserTable({ users }: { users: User[] }) {
                 >
                   {user.name}
                 </Link>
-                <p className="text-muted text-xs">{user.email}</p>
+                <p className="text-muted text-xs" dir="ltr">
+                  {user.email}
+                </p>
               </TD>
-              <TD className="capitalize">{user.role}</TD>
+              <TD>{roleLabel(user.role)}</TD>
               <TD>
-                <Badge tone={statusTone(user.status)}>{user.status}</Badge>
+                <StatusBadge value={normalizeUserStatus(user.status)} options={statusOptions} />
               </TD>
-              <TD className="text-muted whitespace-nowrap">{formatDateTime(user.createdAt)}</TD>
+              <TD className="text-muted">
+                {user.accessAllBranches
+                  ? t('common.all')
+                  : user.branchIds.length > 0
+                    ? user.branchIds.length
+                    : '—'}
+              </TD>
+              <TD className="text-muted whitespace-nowrap">
+                {formatDateTime(user.createdAt, locale)}
+              </TD>
             </TR>
           ))}
         </TBody>

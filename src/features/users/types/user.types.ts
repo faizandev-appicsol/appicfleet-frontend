@@ -1,5 +1,6 @@
 export type {
   User,
+  UserCreateBody,
   UserFormValues,
   UserListQuery,
   UserRole,

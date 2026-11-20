@@ -2,17 +2,32 @@ import { useEffect, useId, useState } from 'react'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { useLocation, useNavigate } from 'react-router'
+import { investorRole } from '@/app/router/access'
 import { readRedirectPath } from '@/app/router/redirect'
+import { appConfig } from '@/config/app.config'
+import { hasAnyRole } from '@/features/auth/access'
 import { useLoginMutation } from '@/features/auth/api/authApi'
 import { loginSchema, type LoginFormValues } from '@/features/auth/schemas/login.schema'
+import { useTranslation } from '@/i18n'
 import { normalizeApiError } from '@/lib/api/apiError'
 import { applyApiFieldErrors } from '@/utils/forms'
 
 const REMEMBER_EMAIL_KEY = 'fleet.login.rememberEmail'
 
+function readSessionExpired(state: unknown): boolean {
+  return (
+    typeof state === 'object' &&
+    state !== null &&
+    'sessionExpired' in state &&
+    (state as { sessionExpired?: unknown }).sessionExpired === true
+  )
+}
+
 export function LoginForm() {
   const navigate = useNavigate()
   const location = useLocation()
+  const { t, tm } = useTranslation()
+  const sessionExpired = readSessionExpired(location.state)
   const [login] = useLoginMutation()
   const [showPassword, setShowPassword] = useState(false)
   const [rememberMe, setRememberMe] = useState(false)
@@ -40,7 +55,7 @@ export function LoginForm() {
 
   const onSubmit = form.handleSubmit(async (values) => {
     try {
-      await login(values).unwrap()
+      const session = await login(values).unwrap()
       try {
         if (rememberMe) {
           localStorage.setItem(REMEMBER_EMAIL_KEY, values.email.trim())
@@ -50,7 +65,16 @@ export function LoginForm() {
       } catch {
         /* Storage can be blocked. */
       }
-      navigate(readRedirectPath(location.state), { replace: true })
+      const requested = readRedirectPath(location.state)
+      const isInvestor = hasAnyRole(session.user.roles, [investorRole])
+      const destination = isInvestor
+        ? requested.startsWith(appConfig.routes.investor)
+          ? requested
+          : appConfig.routes.investor
+        : requested.startsWith(appConfig.routes.investor)
+          ? appConfig.routes.home
+          : requested
+      navigate(destination, { replace: true })
     } catch (error) {
       const normalized = normalizeApiError(error)
       if (!applyApiFieldErrors(form.setError, normalized)) {
@@ -59,32 +83,41 @@ export function LoginForm() {
     }
   })
 
-  const emailError = form.formState.errors.email?.message
-  const passwordError = form.formState.errors.password?.message
+  const emailError = tm(form.formState.errors.email?.message)
+  const passwordError = tm(form.formState.errors.password?.message)
 
   return (
     <form className="grid gap-5" noValidate onSubmit={onSubmit}>
-      <div className="login-fade-up text-center sm:text-left">
+      <div className="login-fade-up text-center sm:text-start">
         <h1 className="text-[1.85rem] leading-tight font-semibold tracking-tight text-[var(--login-ink)] sm:text-[2rem]">
-          Welcome back
+          {t('auth.welcomeTitle')}
         </h1>
         <p className="mt-2 text-sm leading-relaxed text-[var(--login-muted)]">
-          Sign in to manage your fleet operations.
+          {t('auth.welcomeSubtitle')}
         </p>
       </div>
+
+      {sessionExpired && !form.formState.errors.root ? (
+        <div
+          role="status"
+          className="login-fade-up rounded-2xl border border-[#ecd9a8] bg-[#fffaf0] px-4 py-3 text-sm text-[#7a5a12]"
+        >
+          {t('auth.sessionExpired')}
+        </div>
+      ) : null}
 
       {form.formState.errors.root ? (
         <div
           role="alert"
           className="login-fade-up rounded-2xl border border-[#f0c1bc] bg-[#fff5f4] px-4 py-3 text-sm text-[#9f2d22]"
         >
-          {form.formState.errors.root.message}
+          {tm(form.formState.errors.root.message)}
         </div>
       ) : null}
 
       <div className="login-fade-up login-fade-up-delay-1 grid gap-2">
         <label htmlFor={emailId} className="text-sm font-medium text-[var(--login-ink)]">
-          Email
+          {t('auth.email')}
         </label>
         <div
           className="login-field flex items-center gap-3 rounded-2xl border border-[var(--login-line)] px-4 transition-[border-color,box-shadow,background-color]"
@@ -96,7 +129,8 @@ export function LoginForm() {
             type="email"
             autoComplete="email"
             required
-            placeholder="you@company.com"
+            dir="ltr"
+            placeholder={t('auth.emailPlaceholder')}
             aria-invalid={emailError ? true : undefined}
             className="h-12 w-full bg-transparent text-[0.95rem] text-[var(--login-ink)] outline-none placeholder:text-[var(--login-muted)]/80"
             {...form.register('email')}
@@ -107,7 +141,7 @@ export function LoginForm() {
 
       <div className="login-fade-up login-fade-up-delay-2 grid gap-2">
         <label htmlFor={passwordId} className="text-sm font-medium text-[var(--login-ink)]">
-          Password
+          {t('auth.password')}
         </label>
         <div
           className="login-field flex items-center gap-3 rounded-2xl border border-[var(--login-line)] px-4 transition-[border-color,box-shadow,background-color]"
@@ -119,7 +153,7 @@ export function LoginForm() {
             type={showPassword ? 'text' : 'password'}
             autoComplete="current-password"
             required
-            placeholder="Enter your password"
+            placeholder={t('auth.passwordPlaceholder')}
             aria-invalid={passwordError ? true : undefined}
             className="h-12 w-full bg-transparent text-[0.95rem] text-[var(--login-ink)] outline-none placeholder:text-[var(--login-muted)]/80"
             {...form.register('password')}
@@ -128,7 +162,7 @@ export function LoginForm() {
             type="button"
             className="inline-flex size-9 shrink-0 items-center justify-center rounded-xl text-[var(--login-muted)] transition-colors hover:bg-black/5 hover:text-[var(--login-ink)]"
             onClick={() => setShowPassword((value) => !value)}
-            aria-label={showPassword ? 'Hide password' : 'Show password'}
+            aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
           >
             {showPassword ? <EyeOffIcon /> : <EyeIcon />}
           </button>
@@ -148,20 +182,20 @@ export function LoginForm() {
             onChange={(event) => setRememberMe(event.target.checked)}
             className="size-4 rounded border-[var(--login-line)] accent-black"
           />
-          Remember me
+          {t('auth.rememberMe')}
         </label>
         <button
           type="button"
           className="text-sm font-medium text-[var(--login-ink)] underline-offset-4 transition-opacity hover:underline hover:opacity-70"
           onClick={() => setForgotHint(true)}
         >
-          Forgot password?
+          {t('auth.forgotPassword')}
         </button>
       </div>
 
       {forgotHint ? (
         <p className="login-fade-up rounded-2xl bg-[var(--login-soft)] px-4 py-3 text-sm text-[var(--login-muted)]">
-          Contact your administrator to reset your password.
+          {t('auth.forgotHint')}
         </p>
       ) : null}
 
@@ -176,10 +210,10 @@ export function LoginForm() {
               className="size-4 rounded-full border-2 border-white border-r-transparent motion-safe:animate-spin"
               aria-hidden="true"
             />
-            Signing in…
+            {t('auth.signingIn')}
           </>
         ) : (
-          'Sign in'
+          t('auth.signIn')
         )}
       </button>
     </form>

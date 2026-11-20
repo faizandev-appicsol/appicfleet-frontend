@@ -3,7 +3,7 @@ import { cn } from '@/utils/cn'
 
 const tones = {
   neutral: 'bg-canvas text-ink',
-  brand: 'bg-brand-soft text-brand-strong',
+  brand: 'bg-brand-soft text-brand',
   success: 'bg-success-soft text-success',
   warning: 'bg-warning-soft text-warning',
   danger: 'bg-danger-soft text-danger',

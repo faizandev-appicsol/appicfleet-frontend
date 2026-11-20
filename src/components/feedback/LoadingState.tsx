@@ -1,13 +1,17 @@
 import { Spinner } from '@/components/ui/Spinner'
+import { useTranslation } from '@/i18n'
 import { cn } from '@/utils/cn'
 
 export function LoadingState({
-  label = 'Loading',
+  label,
   fullscreen = false,
 }: {
   label?: string
   fullscreen?: boolean
 }) {
+  const { t } = useTranslation()
+  const text = label ?? t('feedback.loadingTitle')
+
   return (
     <div
       className={cn(
@@ -17,8 +21,8 @@ export function LoadingState({
       role="status"
       aria-live="polite"
     >
-      <Spinner className="size-5" label={label} />
-      <p className="text-sm">{label}</p>
+      <Spinner className="size-5" label={text} />
+      <p className="text-sm">{text}</p>
     </div>
   )
 }

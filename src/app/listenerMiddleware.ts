@@ -2,7 +2,7 @@ import { createListenerMiddleware, type TypedStartListening } from '@reduxjs/too
 import type { AppDispatch, RootState } from '@/app/store'
 import { STORAGE_KEYS } from '@/config/constants'
 import { clearSession } from '@/features/auth/slices/authSlice'
-import { setSidebarCollapsed, setTheme } from '@/features/ui/slices/uiSlice'
+import { setLocale, setSidebarCollapsed, setTheme } from '@/features/ui/slices/uiSlice'
 import { baseApi } from '@/lib/api/baseApi'
 import { writeStorage } from '@/lib/storage/browserStorage'
 import { tokenStorage } from '@/lib/storage/tokenStorage'
@@ -25,6 +25,13 @@ startListening({
   actionCreator: setTheme,
   effect: (action) => {
     writeStorage(STORAGE_KEYS.theme, action.payload)
+  },
+})
+
+startListening({
+  actionCreator: setLocale,
+  effect: (action) => {
+    writeStorage(STORAGE_KEYS.locale, action.payload)
   },
 })
 

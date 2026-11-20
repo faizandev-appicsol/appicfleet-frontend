@@ -3,22 +3,44 @@ import { isRecord } from '@/lib/utils/typeGuards'
 
 export type ApiErrorStatus = number | 'NETWORK' | 'TIMEOUT' | 'PARSE' | 'UNKNOWN'
 
+/**
+ * `message` is either an i18n key (`errors.*`) or plain text from the server.
+ * Translate it at render time with `tm()` from `useTranslation`; plain text passes through.
+ */
 export type NormalizedApiError = {
   status: ApiErrorStatus
   message: string
+  code?: string
   fieldErrors?: Record<string, string>
 }
 
-const STATUS_MESSAGES: Record<number, string> = {
-  400: 'The request could not be processed.',
-  401: 'You are not authorized to continue.',
-  403: 'You do not have permission to do that.',
-  404: 'The requested record was not found.',
-  409: 'This conflicts with an existing record.',
-  422: 'Some fields need to be corrected.',
-  429: 'Too many requests. Wait a moment and try again.',
-  500: 'The server could not complete the request.',
+const STATUS_MESSAGE_KEYS: Record<number, string> = {
+  400: 'errors.http400',
+  401: 'errors.http401',
+  403: 'errors.http403',
+  404: 'errors.http404',
+  409: 'errors.http409',
+  422: 'errors.http422',
+  429: 'errors.http429',
+  500: 'errors.http500',
 }
+
+/** Backend error codes that have a localized message. Validation errors keep field messages. */
+const LOCALIZED_ERROR_CODES: ReadonlySet<string> = new Set([
+  'INVALID_CREDENTIALS',
+  'UNAUTHENTICATED',
+  'TOKEN_EXPIRED',
+  'TOKEN_INVALID',
+  'FORBIDDEN',
+  'ACCOUNT_DISABLED',
+  'ACCOUNT_INVITED',
+  'ACCOUNT_INACTIVE',
+  'ACCOUNT_SUSPENDED',
+  'ACCOUNT_LOCKED',
+  'RATE_LIMITED',
+  'DATABASE_UNAVAILABLE',
+  'INTERNAL_ERROR',
+])
 
 function readMessage(data: unknown): string | undefined {
   if (typeof data === 'string' && data.trim()) return data
@@ -32,6 +54,11 @@ function readMessage(data: unknown): string | undefined {
   if (typeof data.title === 'string' && data.title.trim()) return data.title
   if (typeof data.error === 'string' && data.error.trim()) return data.error
   return undefined
+}
+
+function readCode(data: unknown): string | undefined {
+  if (!isRecord(data) || !isRecord(data.error)) return undefined
+  return typeof data.error.code === 'string' ? data.error.code : undefined
 }
 
 function readFieldErrors(data: unknown): Record<string, string> | undefined {
@@ -68,33 +95,34 @@ function isFetchBaseQueryError(error: unknown): error is FetchBaseQueryError {
 export function normalizeApiError(error: unknown): NormalizedApiError {
   if (isFetchBaseQueryError(error)) {
     if (error.status === 'FETCH_ERROR') {
-      return {
-        status: 'NETWORK',
-        message: 'Cannot reach the server. Check your connection and try again.',
-      }
+      return { status: 'NETWORK', message: 'errors.network' }
     }
 
     if (error.status === 'TIMEOUT_ERROR') {
-      return { status: 'TIMEOUT', message: 'The request timed out. Try again.' }
+      return { status: 'TIMEOUT', message: 'errors.timeout' }
     }
 
     if (error.status === 'PARSING_ERROR') {
-      return { status: 'PARSE', message: 'The server returned a response we could not read.' }
+      return { status: 'PARSE', message: 'errors.parse' }
     }
 
     if (error.status === 'CUSTOM_ERROR') {
       return {
         status: 'UNKNOWN',
-        message: typeof error.error === 'string' ? error.error : 'The request failed.',
+        message: typeof error.error === 'string' ? error.error : 'errors.requestFailed',
       }
     }
 
     if (typeof error.status === 'number') {
+      const code = readCode(error.data)
       const message =
-        readMessage(error.data) ?? STATUS_MESSAGES[error.status] ?? 'The request failed.'
+        code && LOCALIZED_ERROR_CODES.has(code)
+          ? `errors.code.${code}`
+          : (readMessage(error.data) ?? STATUS_MESSAGE_KEYS[error.status] ?? 'errors.requestFailed')
       return {
         status: error.status,
         message,
+        code,
         fieldErrors: readFieldErrors(error.data),
       }
     }
@@ -108,5 +136,5 @@ export function normalizeApiError(error: unknown): NormalizedApiError {
     return { status: 'UNKNOWN', message: error.message }
   }
 
-  return { status: 'UNKNOWN', message: 'Something went wrong. Try again.' }
+  return { status: 'UNKNOWN', message: 'errors.unknown' }
 }

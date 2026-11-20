@@ -3,10 +3,10 @@ import { rememberSession, requestRefresh } from '@/features/auth/api/refreshSess
 import { clearSession } from '@/features/auth/slices/authSlice'
 import {
   parseAuthSession,
-  sessionUserSchema,
+  profileSchema,
   type AuthSession,
   type LoginRequest,
-  type SessionUser,
+  type ProfileResource,
 } from '@/features/auth/types/auth.types'
 import { baseApi } from '@/lib/api/baseApi'
 import { tokenStorage } from '@/lib/storage/tokenStorage'
@@ -31,7 +31,7 @@ export const authApi = baseApi.injectEndpoints({
       }),
       transformResponse: (response: unknown) => {
         const session = parseAuthSession(response)
-        if (!session) throw new Error('The login response did not include a session.')
+        if (!session) throw new Error('auth.sessionMissing')
         return session
       },
       async onQueryStarted(_argument, { dispatch, queryFulfilled }) {
@@ -78,22 +78,44 @@ export const authApi = baseApi.injectEndpoints({
         }
       },
     }),
-    me: builder.query<SessionUser, void>({
+    me: builder.query<ProfileResource, void>({
       query: () => AUTH_ENDPOINTS.me,
       transformResponse: (response: unknown) => {
-        const direct = sessionUserSchema.safeParse(response)
+        const direct = profileSchema.safeParse(response)
         if (direct.success) return direct.data
 
-        if (typeof response === 'object' && response !== null && 'user' in response) {
-          const nested = sessionUserSchema.safeParse(response.user)
-          if (nested.success) return nested.data
+        if (typeof response === 'object' && response !== null) {
+          const candidates = [
+            'data' in response ? response.data : undefined,
+            'user' in response ? response.user : undefined,
+          ]
+          for (const candidate of candidates) {
+            const nested = profileSchema.safeParse(candidate)
+            if (nested.success) return nested.data
+          }
         }
 
-        throw new Error('The profile response did not include a user.')
+        throw new Error('profile.loadError')
       },
       providesTags: ['Auth'],
+    }),
+    changePassword: builder.mutation<
+      void,
+      { currentPassword: string; newPassword: string }
+    >({
+      query: (body) => ({
+        url: AUTH_ENDPOINTS.changePassword,
+        method: 'POST',
+        body,
+      }),
     }),
   }),
 })
 
-export const { useLoginMutation, useLogoutMutation, useRefreshMutation, useMeQuery } = authApi
+export const {
+  useLoginMutation,
+  useLogoutMutation,
+  useRefreshMutation,
+  useMeQuery,
+  useChangePasswordMutation,
+} = authApi

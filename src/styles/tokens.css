@@ -87,16 +87,19 @@
   --ease-exit: cubic-bezier(0.4, 0, 1, 1);
 
   /* Elevation / shadow */
-  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.04);
-  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.08);
-  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.12);
-  --shadow-modal: 0 1px 2px rgba(0, 0, 0, 0.04), 0 24px 48px rgba(0, 0, 0, 0.14);
+  --shadow-xs: 0 1px 2px rgba(15, 40, 80, 0.04);
+  --shadow-sm: 0 1px 2px rgba(15, 40, 80, 0.04), 0 6px 16px rgba(15, 40, 80, 0.05);
+  --shadow-md: 0 10px 28px rgba(15, 40, 80, 0.08);
+  --shadow-lg: 0 18px 40px rgba(15, 40, 80, 0.1);
+  --shadow-modal: 0 1px 2px rgba(15, 40, 80, 0.04), 0 24px 48px rgba(15, 40, 80, 0.12);
+  --shadow-card: 0 1px 2px rgba(15, 40, 80, 0.04), 0 10px 28px rgba(15, 40, 80, 0.06);
+  --shadow-brand: 0 8px 20px color-mix(in srgb, var(--ui-brand) 24%, transparent);
+  --shadow-glow: 0 0 0 transparent;
   --shadow-login-card: 0 1px 2px rgba(0, 0, 0, 0.04), 0 24px 48px rgba(0, 0, 0, 0.08),
     0 48px 96px rgba(0, 0, 0, 0.04);
 
   /* Overlay */
-  --overlay-scrim: rgba(16, 18, 16, 0.45);
+  --overlay-scrim: rgba(11, 27, 51, 0.4);
 
   /* Z-index */
   --z-base: 0;
@@ -112,9 +115,9 @@
   --sidebar-width: 16rem;
   --sidebar-width-collapsed: 4rem;
   --header-height: 4rem;
-  --content-max-width: 72rem;
+  --content-max-width: 96rem;
   --login-form-max-width: 28rem;
-  --modal-max-width: 28rem;
+  --modal-max-width: 32rem;
 
   /* Control sizes */
   --control-height-sm: 2rem;
@@ -124,6 +127,11 @@
   /* Focus ring */
   --focus-ring-width: 2px;
   --focus-ring-offset: 2px;
+
+  /* Surface levels */
+  --ui-surface-1: var(--ui-canvas);
+  --ui-surface-2: var(--ui-surface);
+  --ui-surface-3: color-mix(in srgb, var(--ui-surface) 92%, var(--ui-ink));
 }
 
 /* -------------------------------------------------------------------------- */
@@ -131,33 +139,43 @@
 /* -------------------------------------------------------------------------- */
 
 :root {
-  --ui-canvas: #f3f0e8;
-  --ui-surface: #fffcf8;
-  --ui-ink: #1c1915;
-  --ui-muted: #6f685e;
-  --ui-line: #e4ddd2;
+  /*
+   * Console light theme — cool blue-white SaaS (Appic Fleet light reference).
+   */
+  --ui-canvas: #f0f4f8;
+  --ui-surface: #ffffff;
+  --ui-ink: #001a41;
+  --ui-muted: #5a6c80;
+  --ui-line: #d7e3f0;
 
-  --ui-brand: #0e6b62;
-  --ui-brand-strong: #0a564f;
-  --ui-brand-soft: #e5f3f1;
-  --ui-brand-contrast: #f4fffd;
+  --ui-brand: #0047bb;
+  --ui-brand-strong: #003a99;
+  --ui-brand-soft: #e3f2fd;
+  --ui-brand-contrast: #ffffff;
 
-  --ui-danger: #9f2d22;
-  --ui-danger-soft: #fdeceb;
-  --ui-danger-contrast: #fffaf8;
+  --ui-danger: #ef4444;
+  --ui-danger-soft: #fee2e2;
+  --ui-danger-contrast: #ffffff;
 
-  --ui-warning: #9a4d08;
-  --ui-warning-soft: #fef4e6;
+  --ui-warning: #f59e0b;
+  --ui-warning-soft: #fef3c7;
 
-  --ui-success: #067647;
-  --ui-success-soft: #e7f6ee;
+  --ui-success: #10b981;
+  --ui-success-soft: #d1fae5;
 
-  --ui-info: #175cd3;
-  --ui-info-soft: #e8f0fe;
+  --ui-info: #2563eb;
+  --ui-info-soft: #dbeafe;
 
-  --ui-sidebar: #102421;
-  --ui-sidebar-ink: #e7f3f1;
-  --ui-sidebar-muted: #9db8b3;
+  --ui-sidebar: #ffffff;
+  --ui-sidebar-ink: #0047bb;
+  --ui-sidebar-muted: #1a73e8;
+
+  --ui-control: #ebf2fa;
+  --ui-glow: transparent;
+  --ui-canvas-atmosphere:
+    radial-gradient(ellipse 80% 50% at 100% 0%, rgba(0, 71, 187, 0.06), transparent 55%),
+    radial-gradient(ellipse 60% 40% at 0% 100%, rgba(37, 99, 235, 0.04), transparent 50%),
+    linear-gradient(180deg, #f5f8fc 0%, #f0f4f8 100%);
 
   /* Login surface (minimal B&W, independent of console theme) */
   --login-font: var(--font-family-display);
@@ -172,40 +190,64 @@
 }
 
 .dark {
-  --ui-canvas: #101210;
-  --ui-surface: #1a1e1b;
-  --ui-ink: #f6f3ec;
-  --ui-muted: #b7b1a6;
-  --ui-line: #2e332c;
+  /*
+   * Console dark theme — deep navy glass + electric blue accents
+   * Matches the Appic Fleet dashboard reference (glassmorphism, neon brand).
+   */
+  --ui-canvas: #050b18;
+  --ui-surface: #0c1428;
+  --ui-ink: #ffffff;
+  --ui-muted: #94a3b8;
+  --ui-line: color-mix(in srgb, #94a3b8 18%, transparent);
 
-  --ui-brand: #7ddecf;
-  --ui-brand-strong: #b7f3e8;
-  --ui-brand-soft: #16332f;
-  --ui-brand-contrast: #06221f;
+  --ui-brand: #2f8cff;
+  --ui-brand-strong: #5aa7ff;
+  --ui-brand-soft: color-mix(in srgb, #2f8cff 18%, transparent);
+  --ui-brand-contrast: #ffffff;
 
-  --ui-danger: #ffb4ab;
-  --ui-danger-soft: #3b1614;
-  --ui-danger-contrast: #3b0a08;
+  --ui-danger: #ef4444;
+  --ui-danger-soft: color-mix(in srgb, #ef4444 16%, transparent);
+  --ui-danger-contrast: #ffffff;
 
-  --ui-warning: #ffc58a;
-  --ui-warning-soft: #3a2714;
+  --ui-warning: #f59e0b;
+  --ui-warning-soft: color-mix(in srgb, #f59e0b 16%, transparent);
 
-  --ui-success: #8ddeb5;
-  --ui-success-soft: #123228;
+  --ui-success: #10b981;
+  --ui-success-soft: color-mix(in srgb, #10b981 16%, transparent);
 
-  --ui-info: #b3ccff;
-  --ui-info-soft: #16233a;
+  --ui-info: #38bdf8;
+  --ui-info-soft: color-mix(in srgb, #38bdf8 16%, transparent);
 
-  --ui-sidebar: #0c1412;
-  --ui-sidebar-ink: #e7f3f1;
-  --ui-sidebar-muted: #8aa39e;
+  --ui-sidebar: #07101f;
+  --ui-sidebar-ink: #f1f5f9;
+  --ui-sidebar-muted: #8ba0bc;
 
-  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.24);
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.28), 0 4px 12px rgba(0, 0, 0, 0.2);
-  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.32);
-  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.4);
-  --shadow-modal: 0 1px 2px rgba(0, 0, 0, 0.3), 0 24px 48px rgba(0, 0, 0, 0.45);
-  --overlay-scrim: rgba(0, 0, 0, 0.55);
+  --ui-control: color-mix(in srgb, #94a3b8 12%, transparent);
+
+  --ui-surface-1: var(--ui-canvas);
+  --ui-surface-2: var(--ui-surface);
+  --ui-surface-3: color-mix(in srgb, #13203a 88%, #ffffff);
+
+  --ui-glow: color-mix(in srgb, #2f8cff 45%, transparent);
+  --ui-canvas-atmosphere:
+    radial-gradient(ellipse 90% 55% at 12% -8%, rgba(47, 140, 255, 0.22), transparent 55%),
+    radial-gradient(ellipse 70% 45% at 92% 0%, rgba(14, 165, 233, 0.14), transparent 50%),
+    radial-gradient(ellipse 50% 40% at 50% 100%, rgba(37, 99, 235, 0.08), transparent 55%),
+    linear-gradient(180deg, #070f1f 0%, #020617 55%, #01040d 100%);
+
+  --shadow-xs: 0 1px 2px rgba(1, 4, 13, 0.45);
+  --shadow-sm: 0 1px 2px rgba(1, 4, 13, 0.5), 0 8px 24px rgba(1, 4, 13, 0.35);
+  --shadow-md: 0 12px 32px rgba(1, 4, 13, 0.45);
+  --shadow-lg: 0 20px 48px rgba(1, 4, 13, 0.55);
+  --shadow-modal: 0 1px 2px rgba(1, 4, 13, 0.4), 0 28px 64px rgba(1, 4, 13, 0.65);
+  --shadow-card:
+    0 0 0 1px color-mix(in srgb, #93c5fd 10%, transparent),
+    0 10px 36px rgba(1, 4, 13, 0.45);
+  --shadow-brand: 0 8px 28px color-mix(in srgb, #2f8cff 42%, transparent);
+  --shadow-glow:
+    0 0 12px color-mix(in srgb, #2f8cff 45%, transparent),
+    0 0 28px color-mix(in srgb, #2f8cff 28%, transparent);
+  --overlay-scrim: rgba(2, 6, 23, 0.72);
 
   color-scheme: dark;
 }
