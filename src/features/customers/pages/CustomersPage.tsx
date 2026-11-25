@@ -7,15 +7,28 @@ import { SearchField } from '@/components/common/SearchField'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { DataTable, type DataTableColumn } from '@/components/ui/DataTable'
-import { Select } from '@/components/ui/Input'
+import { FilterDropdown } from '@/components/ui/FilterDropdown'
 import { Pagination } from '@/components/ui/Pagination'
 import { StatusBadge } from '@/components/ui/StatusBadge'
+import {
+  DownloadIcon,
+  EyeIcon,
+  PencilIcon,
+  PlusIcon,
+  TrashIcon,
+} from '@/components/ui/icons'
 import { appConfig } from '@/config/app.config'
 import { hasAnyRole } from '@/features/auth/access'
 import { usePermissions } from '@/features/auth/hooks/usePermissions'
 import { useBranchOptions } from '@/features/branches/hooks/useBranchOptions'
-import { useGetCustomersQuery } from '@/features/customers/api/customersApi'
+import {
+  useGetCustomerQuery,
+  useGetCustomerStatsQuery,
+  useGetCustomersQuery,
+} from '@/features/customers/api/customersApi'
+import { DeleteCustomerDialog } from '@/features/customers/components/DeleteCustomerDialog'
 import { CustomerFormDialog } from '@/features/customers/components/CustomerFormDialog'
+import { CustomerStatCards } from '@/features/customers/components/CustomerStatCards'
 import { useCustomerOptions } from '@/features/customers/hooks/useCustomerOptions'
 import type { CustomerListItem } from '@/features/customers/schemas/customer.schema'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
@@ -26,6 +39,36 @@ import { formatDateTime } from '@/utils/formatDate'
 const PAGE_SIZE = 20
 const CREATE_ROLES = ['admin', 'org_admin', 'super_admin', 'manager', 'branch_manager'] as const
 
+function exportCsv(
+  rows: readonly CustomerListItem[],
+  filename: string,
+  branchNameOf: (branchId: string) => string,
+) {
+  const header = ['Customer', 'Customer Number', 'Type', 'Phone', 'Email', 'Branch', 'Status']
+  const lines = rows.map((row) =>
+    [
+      row.displayName,
+      row.customerNumber,
+      row.customerType ?? row.type,
+      row.phone ?? '',
+      row.email ?? '',
+      branchNameOf(row.branchId),
+      row.status,
+    ]
+      .map((cell) => `"${String(cell).replaceAll('"', '""')}"`)
+      .join(','),
+  )
+  const blob = new Blob([`\uFEFF${[header.join(','), ...lines].join('\n')}`], {
+    type: 'text/csv;charset=utf-8',
+  })
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = filename
+  anchor.click()
+  URL.revokeObjectURL(url)
+}
+
 export function CustomersPage() {
   const { t } = useTranslation()
   useDocumentTitle(t('customers.title'))
@@ -35,27 +78,38 @@ export function CustomersPage() {
   const options = useCustomerOptions()
   const branches = useBranchOptions()
   const { searchInput, setSearchInput, search, page, setPage } = useSearchPagination()
-  const [type, setType] = useState('')
+  const [customerType, setCustomerType] = useState('')
   const [status, setStatus] = useState('')
-  const [documentStatus, setDocumentStatus] = useState('')
   const [branchId, setBranchId] = useState('')
   const [sort, setSort] = useState<'displayName' | 'createdAt' | 'customerNumber'>('displayName')
   const [createOpen, setCreateOpen] = useState(false)
+  const [editId, setEditId] = useState<string | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null)
 
   const canCreate = can(PERMISSIONS.customerCreate) || hasAnyRole(roles, CREATE_ROLES)
-  const hasFilters = Boolean(search || type || status || documentStatus || branchId)
+  const canUpdate = can(PERMISSIONS.customerUpdate)
+  const canDelete = can(PERMISSIONS.customerDeactivate)
+  const hasFilters = Boolean(search || customerType || status || branchId)
 
   const query = useGetCustomersQuery({
     page,
     pageSize: PAGE_SIZE,
     search: search || undefined,
-    type: type || undefined,
+    customerType: customerType || undefined,
     status: status || undefined,
-    documentStatus: documentStatus || undefined,
     branchId: branchId || undefined,
     sort,
     order: sort === 'createdAt' ? 'desc' : 'asc',
   })
+  const statsQuery = useGetCustomerStatsQuery({
+    search: search || undefined,
+    customerType: customerType || undefined,
+    branchId: branchId || undefined,
+  })
+  const editQuery = useGetCustomerQuery(
+    { id: editId ?? '' },
+    { skip: !editId, refetchOnMountOrArgChange: true },
+  )
 
   const onFilter = (apply: (value: string) => void) => (value: string) => {
     apply(value)
@@ -84,7 +138,11 @@ export function CustomersPage() {
       id: 'type',
       header: t('customers.columns.type'),
       className: 'whitespace-nowrap',
-      cell: (row) => options.labelOf(options.typeOptions, row.type),
+      cell: (row) =>
+        options.labelOf(
+          options.profileTypeOptions,
+          row.customerType ?? (row.type === 'corporate' ? 'organization' : 'individual'),
+        ),
     },
     {
       id: 'phone',
@@ -109,13 +167,6 @@ export function CustomersPage() {
       cell: (row) => <StatusBadge value={row.status} options={options.statusOptions} />,
     },
     {
-      id: 'documents',
-      header: t('customers.columns.documents'),
-      cell: (row) => (
-        <StatusBadge value={row.documentStatus} options={options.documentStatusOptions} />
-      ),
-    },
-    {
       id: 'created',
       header: t('common.created'),
       className: 'whitespace-nowrap',
@@ -126,12 +177,38 @@ export function CustomersPage() {
       header: t('common.actions'),
       className: 'text-end',
       cell: (row) => (
-        <Link
-          to={detailPath(row.id)}
-          className="text-brand hover:text-brand-strong text-sm font-medium whitespace-nowrap"
-        >
-          {t('customers.actions.view')}
-        </Link>
+        <div className="inline-flex items-center justify-end gap-1">
+          <Link
+            to={detailPath(row.id)}
+            className="text-muted hover:bg-control hover:text-brand inline-flex size-8 items-center justify-center rounded-lg"
+            aria-label={t('customers.actions.view')}
+            title={t('customers.actions.view')}
+          >
+            <EyeIcon className="size-4" />
+          </Link>
+          {canUpdate ? (
+            <button
+              type="button"
+              className="text-muted hover:bg-control hover:text-ink inline-flex size-8 cursor-pointer items-center justify-center rounded-lg"
+              aria-label={t('customers.actions.edit')}
+              title={t('customers.actions.edit')}
+              onClick={() => setEditId(row.id)}
+            >
+              <PencilIcon className="size-4" />
+            </button>
+          ) : null}
+          {canDelete ? (
+            <button
+              type="button"
+              className="text-muted hover:bg-danger-soft hover:text-danger inline-flex size-8 cursor-pointer items-center justify-center rounded-lg"
+              aria-label={t('common.delete')}
+              title={t('common.delete')}
+              onClick={() => setDeleteTarget({ id: row.id, name: row.displayName })}
+            >
+              <TrashIcon className="size-4" />
+            </button>
+          ) : null}
+        </div>
       ),
     },
   ]
@@ -141,72 +218,97 @@ export function CustomersPage() {
       <PageHeader
         title={t('customers.title')}
         description={t('customers.description')}
-        action={
-          canCreate ? (
-            <Button type="button" onClick={() => setCreateOpen(true)}>
-              {t('customers.add')}
-            </Button>
-          ) : undefined
-        }
       />
-      <div className="grid min-w-0 gap-3">
-        <SearchField
-          value={searchInput}
-          onChange={setSearchInput}
-          label={t('customers.searchLabel')}
-          placeholder={t('customers.searchPlaceholder')}
-        />
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Select
-            label={t('customers.filters.type')}
-            value={type}
-            onChange={(event) => onFilter(setType)(event.target.value)}
-            options={[{ value: '', label: t('customers.filters.allTypes') }, ...options.typeOptions]}
-          />
-          <Select
-            label={t('customers.filters.status')}
-            value={status}
-            onChange={(event) => onFilter(setStatus)(event.target.value)}
-            options={[
-              { value: '', label: t('customers.filters.allStatuses') },
-              ...options.statusOptions,
-            ]}
-          />
-          <Select
-            label={t('customers.filters.documentStatus')}
-            value={documentStatus}
-            onChange={(event) => onFilter(setDocumentStatus)(event.target.value)}
-            options={[
-              { value: '', label: t('customers.filters.allDocumentStatuses') },
-              ...options.documentStatusOptions,
-            ]}
-          />
-          <Select
-            label={t('customers.filters.sort')}
-            value={sort}
-            onChange={(event) => {
-              const value = event.target.value
-              if (value === 'createdAt' || value === 'customerNumber' || value === 'displayName') {
-                setSort(value)
-                setPage(1)
-              }
-            }}
-            options={[
-              { value: 'displayName', label: t('customers.sort.displayName') },
-              { value: 'createdAt', label: t('customers.sort.createdAt') },
-              { value: 'customerNumber', label: t('customers.sort.customerNumber') },
-            ]}
-          />
-          {branches.allowed ? (
-            <Select
-              label={t('customers.filters.branch')}
-              value={branchId}
-              onChange={(event) => onFilter(setBranchId)(event.target.value)}
+      <QueryState
+        data={statsQuery.data}
+        isLoading={statsQuery.isLoading}
+        isFetching={statsQuery.isFetching && !statsQuery.isLoading}
+        error={statsQuery.error}
+        onRetry={statsQuery.refetch}
+        isEmpty={() => false}
+        emptyTitle=""
+      >
+        {(stats) => <CustomerStatCards stats={stats} />}
+      </QueryState>
+      <div className="border-line bg-surface shadow-card flex min-w-0 flex-col gap-3 rounded-2xl border p-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 flex-1 flex-col gap-3 lg:flex-row lg:items-center">
+          <div className="min-w-0 flex-1 lg:max-w-xs">
+            <SearchField
+              value={searchInput}
+              onChange={setSearchInput}
+              label={t('customers.searchLabel')}
+              placeholder={t('customers.searchPlaceholder')}
+              showLabel={false}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:flex lg:flex-wrap lg:items-center">
+            <FilterDropdown
+              aria-label={t('customers.filters.type')}
+              value={customerType}
+              onChange={onFilter(setCustomerType)}
               options={[
-                { value: '', label: t('customers.filters.allBranches') },
-                ...branches.items.map((branch) => ({ value: branch.id, label: branch.name })),
+                { value: '', label: t('customers.filters.allTypes') },
+                ...options.profileTypeOptions,
               ]}
             />
+            <FilterDropdown
+              aria-label={t('customers.filters.status')}
+              value={status}
+              onChange={onFilter(setStatus)}
+              options={[
+                { value: '', label: t('customers.filters.allStatuses') },
+                ...options.statusOptions,
+              ]}
+            />
+            {branches.allowed ? (
+              <FilterDropdown
+                aria-label={t('customers.filters.branch')}
+                value={branchId}
+                onChange={onFilter(setBranchId)}
+                options={[
+                  { value: '', label: t('customers.filters.allBranches') },
+                  ...branches.items.map((branch) => ({ value: branch.id, label: branch.name })),
+                ]}
+              />
+            ) : null}
+            <FilterDropdown
+              aria-label={t('customers.filters.sort')}
+              value={sort}
+              onChange={(value) => {
+                if (value === 'createdAt' || value === 'customerNumber' || value === 'displayName') {
+                  setSort(value)
+                  setPage(1)
+                }
+              }}
+              options={[
+                { value: 'displayName', label: t('customers.sort.displayName') },
+                { value: 'createdAt', label: t('customers.sort.createdAt') },
+                { value: 'customerNumber', label: t('customers.sort.customerNumber') },
+              ]}
+            />
+          </div>
+        </div>
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() =>
+              exportCsv(
+                query.data?.items ?? [],
+                `customers-${new Date().toISOString().slice(0, 10)}.csv`,
+                (id) => branches.nameById.get(id) ?? id,
+              )
+            }
+            disabled={!query.data?.items.length}
+          >
+            <DownloadIcon className="size-4" />
+            {t('customers.actions.export')}
+          </Button>
+          {canCreate ? (
+            <Button type="button" onClick={() => setCreateOpen(true)}>
+              <PlusIcon className="size-4" />
+              {t('customers.add')}
+            </Button>
           ) : null}
         </div>
       </div>
@@ -234,6 +336,41 @@ export function CustomersPage() {
         onClose={() => setCreateOpen(false)}
         onCreated={(id) => navigate(detailPath(id))}
       />
+      {editId ? (
+        <div className="grid gap-3">
+          <div className="flex justify-end">
+            <Button type="button" variant="secondary" onClick={() => setEditId(null)}>
+              {t('common.cancel')}
+            </Button>
+          </div>
+          <QueryState
+            data={editQuery.data}
+            isLoading={editQuery.isLoading}
+            isFetching={editQuery.isFetching && !editQuery.isLoading}
+            error={editQuery.error}
+            onRetry={editQuery.refetch}
+            isEmpty={() => false}
+            emptyTitle=""
+          >
+            {(customer) => (
+              <CustomerFormDialog
+                key={customer.id}
+                open
+                customer={customer}
+                onClose={() => setEditId(null)}
+              />
+            )}
+          </QueryState>
+        </div>
+      ) : null}
+      {deleteTarget ? (
+        <DeleteCustomerDialog
+          open
+          customerId={deleteTarget.id}
+          customerName={deleteTarget.name}
+          onClose={() => setDeleteTarget(null)}
+        />
+      ) : null}
     </>
   )
 }

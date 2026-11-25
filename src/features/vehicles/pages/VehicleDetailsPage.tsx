@@ -1,6 +1,7 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
-import { PERMISSIONS } from '@/app/router/access'
+import { PERMISSIONS, contractDirectoryRoles } from '@/app/router/access'
+import { useAppSelector } from '@/app/hooks'
 import { ErrorState } from '@/components/feedback/ErrorState'
 import { LoadingState } from '@/components/feedback/LoadingState'
 import { Button } from '@/components/ui/Button'
@@ -22,7 +23,9 @@ import {
   TrashIcon,
 } from '@/components/ui/icons'
 import { appConfig } from '@/config/app.config'
+import { hasAnyRole } from '@/features/auth/access'
 import { usePermissions } from '@/features/auth/hooks/usePermissions'
+import { RelatedContractsSection } from '@/features/contracts/components/RelatedContractsSection'
 import { useBranchOptions } from '@/features/branches/hooks/useBranchOptions'
 import {
   useGetVehicleQuery,
@@ -48,6 +51,7 @@ const NAV = [
   'overview',
   'assignments',
   'bookings',
+  'contracts',
   'maintenance',
   'fuel',
   'expenses',
@@ -61,6 +65,7 @@ const NAV_ICONS: Record<NavId, typeof OverviewIcon> = {
   overview: OverviewIcon,
   assignments: ServiceIcon,
   bookings: BookingsIcon,
+  contracts: BookingsIcon,
   maintenance: ServiceIcon,
   fuel: FuelIcon,
   expenses: ExpenseIcon,
@@ -109,12 +114,15 @@ function VehicleDetails({ vehicle }: { vehicle: VehicleDetail }) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const { can } = usePermissions()
+  const roles = useAppSelector((state) => state.auth.user?.roles)
   const { statusOptions } = useVehicleOptions()
   const [nav, setNav] = useState<NavId>('overview')
   const [editOpen, setEditOpen] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
   const canUpdate = can(PERMISSIONS.vehicleUpdate)
+  const canViewContracts =
+    can(PERMISSIONS.contractView) || hasAnyRole(roles, contractDirectoryRoles)
   const canDelete = can(PERMISSIONS.vehicleDeactivate)
   const canSoftDelete =
     canDelete && vehicle.status !== 'rented' && vehicle.status !== 'reserved'
@@ -177,7 +185,7 @@ function VehicleDetails({ vehicle }: { vehicle: VehicleDetail }) {
       <div className="grid min-w-0 gap-5 lg:grid-cols-[220px_minmax(0,1fr)]">
         <aside className="border-line bg-surface shadow-card h-fit rounded-2xl border p-2">
           <nav aria-label={t('vehicles.detail.navLabel')} className="grid gap-1">
-            {NAV.map((id) => {
+            {NAV.filter((id) => id !== 'contracts' || canViewContracts).map((id) => {
               const Icon = NAV_ICONS[id]
               const active = nav === id
               return (
@@ -216,6 +224,9 @@ function VehicleDetails({ vehicle }: { vehicle: VehicleDetail }) {
             />
           ) : null}
           {nav === 'bookings' ? <ComingSoon title={t('vehicles.detail.nav.bookings')} /> : null}
+          {nav === 'contracts' && canViewContracts ? (
+            <RelatedContractsSection vehicleId={vehicle.id} />
+          ) : null}
           {nav === 'maintenance' ? (
             <ComingSoon title={t('vehicles.detail.nav.maintenance')} />
           ) : null}

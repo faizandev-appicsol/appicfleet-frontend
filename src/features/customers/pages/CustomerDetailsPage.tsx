@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router'
-import { PERMISSIONS } from '@/app/router/access'
+import { PERMISSIONS, contractDirectoryRoles } from '@/app/router/access'
 import { useAppSelector } from '@/app/hooks'
 import { ErrorState } from '@/components/feedback/ErrorState'
 import { LoadingState } from '@/components/feedback/LoadingState'
@@ -11,6 +11,7 @@ import { StatusBadge } from '@/components/ui/StatusBadge'
 import { appConfig } from '@/config/app.config'
 import { hasAnyRole } from '@/features/auth/access'
 import { usePermissions } from '@/features/auth/hooks/usePermissions'
+import { RelatedContractsSection } from '@/features/contracts/components/RelatedContractsSection'
 import { useBranchOptions } from '@/features/branches/hooks/useBranchOptions'
 import { useGetCustomerQuery } from '@/features/customers/api/customersApi'
 import { ContactsSection } from '@/features/customers/components/ContactsSection'
@@ -26,7 +27,7 @@ import { useTranslation } from '@/i18n'
 import { cn } from '@/utils/cn'
 import { formatDateTime } from '@/utils/formatDate'
 
-const TABS = ['overview', 'contacts', 'documents', 'duplicates', 'activity'] as const
+const TABS = ['overview', 'contracts', 'contacts', 'documents', 'duplicates', 'activity'] as const
 type TabId = (typeof TABS)[number]
 
 const STAFF_ROLES = ['admin', 'org_admin', 'super_admin', 'manager', 'branch_manager'] as const
@@ -106,6 +107,8 @@ function CustomerDetails({
   const canReviewOcr = can(PERMISSIONS.customerReviewOcr) || hasAnyRole(roles, STAFF_ROLES)
   const canReviewDuplicates =
     can(PERMISSIONS.customerReviewDuplicates) || hasAnyRole(roles, ADMIN_ROLES)
+  const canViewContracts =
+    can(PERMISSIONS.contractView) || hasAnyRole(roles, contractDirectoryRoles)
   const showStatus = canDeactivate || (canUpdate && customer.status !== 'active')
 
   return (
@@ -139,7 +142,7 @@ function CustomerDetails({
           aria-label={t('customers.detail.sections')}
           className="border-line flex min-w-0 gap-1 overflow-x-auto border-b"
         >
-          {TABS.map((id) => (
+          {TABS.filter((id) => id !== 'contracts' || canViewContracts).map((id) => (
             <button
               key={id}
               type="button"
@@ -173,6 +176,9 @@ function CustomerDetails({
               canReveal={canReadFile}
               onRevealChange={onRevealChange}
             />
+          ) : null}
+          {tab === 'contracts' && canViewContracts ? (
+            <RelatedContractsSection customerId={customer.id} />
           ) : null}
           {tab === 'contacts' ? (
             <ContactsSection customerId={customer.id} reveal={reveal} canUpdate={canUpdate} />
@@ -235,13 +241,21 @@ function Overview({
       ) : null}
       <dl className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <DetailField label={t('customers.columns.type')} placeholder={placeholder}>
-          {options.labelOf(options.typeOptions, customer.type)}
+          {options.labelOf(
+            options.profileTypeOptions,
+            customer.customerType ?? (customer.type === 'corporate' ? 'organization' : 'individual'),
+          )}
         </DetailField>
         <DetailField label={t('customers.columns.branch')} placeholder={placeholder}>
           {branches.nameById.get(customer.branchId) ?? customer.branchId}
         </DetailField>
         <DetailField label={t('customers.columns.documents')} placeholder={placeholder}>
           <StatusBadge value={customer.documentStatus} options={options.documentStatusOptions} />
+        </DetailField>
+        <DetailField label={t('customers.form.residency')} placeholder={placeholder}>
+          {customer.residency
+            ? options.labelOf(options.residencyOptions, customer.residency)
+            : undefined}
         </DetailField>
         <DetailField label={t('common.email')} placeholder={placeholder} ltr>
           {customer.email}
@@ -287,6 +301,35 @@ function Overview({
             </DetailField>
           </>
         ) : null}
+        <DetailField label={t('customers.form.identityDocumentType')} placeholder={placeholder}>
+          {customer.identityDocumentType
+            ? options.labelOf(options.identityDocumentTypeOptions, customer.identityDocumentType)
+            : undefined}
+        </DetailField>
+        <DetailField label={t('customers.form.identityNumber')} placeholder={placeholder} ltr>
+          {customer.identityNumber}
+        </DetailField>
+        <DetailField label={t('customers.form.identityIssuedOn')} placeholder={placeholder} ltr>
+          {customer.identityIssuedOn}
+        </DetailField>
+        <DetailField label={t('customers.form.identityExpiresOn')} placeholder={placeholder} ltr>
+          {customer.identityExpiresOn}
+        </DetailField>
+        <DetailField label={t('customers.form.identityIssuePlace')} placeholder={placeholder}>
+          {customer.identityIssuePlace}
+        </DetailField>
+        <DetailField label={t('customers.form.licenseNumber')} placeholder={placeholder} ltr>
+          {customer.licenseNumber}
+        </DetailField>
+        <DetailField label={t('customers.form.licenseIssuedOn')} placeholder={placeholder} ltr>
+          {customer.licenseIssuedOn}
+        </DetailField>
+        <DetailField label={t('customers.form.licenseExpiresOn')} placeholder={placeholder} ltr>
+          {customer.licenseExpiresOn}
+        </DetailField>
+        <DetailField label={t('customers.form.vatNumber')} placeholder={placeholder} ltr>
+          {customer.vatNumber}
+        </DetailField>
         <DetailField label={t('customers.form.line1')} placeholder={placeholder}>
           {customer.address
             ? `${customer.address.line1}, ${customer.address.city}, ${customer.address.country}`

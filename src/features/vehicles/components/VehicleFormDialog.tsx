@@ -35,18 +35,9 @@ import {
 import { useTranslation } from '@/i18n'
 import { normalizeApiError, type NormalizedApiError } from '@/lib/api/apiError'
 import { todayDateInput } from '@/utils/dates'
+import { fileToBase64 } from '@/utils/file'
 
 const PHOTO_MIME_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp'])
-
-async function fileToBase64(file: File): Promise<string> {
-  const buffer = await file.arrayBuffer()
-  const bytes = new Uint8Array(buffer)
-  let binary = ''
-  for (let index = 0; index < bytes.length; index += 1) {
-    binary += String.fromCharCode(bytes[index]!)
-  }
-  return btoa(binary)
-}
 
 const DEFAULT_VALUES: VehicleFormValues = {
   organizationId: '',

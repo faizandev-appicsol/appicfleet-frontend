@@ -11,6 +11,28 @@ export function useCustomerOptions() {
     { value: 'individual', label: t('customers.types.individual') },
     { value: 'corporate', label: t('customers.types.corporate') },
   ]
+  const profileTypeOptions: readonly Option[] = [
+    { value: 'individual', label: t('customers.types.individual') },
+    { value: 'organization', label: t('customers.types.organization') },
+    { value: 'tourist', label: t('customers.types.tourist') },
+  ]
+  const residencyOptions: readonly Option[] = [
+    { value: 'residential', label: t('customers.residencies.residential') },
+    { value: 'gcc', label: t('customers.residencies.gcc') },
+    { value: 'tourist', label: t('customers.residencies.tourist') },
+  ]
+  const identityDocumentTypeOptions: readonly Option[] = [
+    { value: 'passport', label: t('customers.fileTypes.passport') },
+    { value: 'emirates_id', label: t('customers.fileTypes.emirates_id') },
+  ]
+  const documentPurposeOptions: readonly Option[] = [
+    { value: 'identity', label: t('customers.documents.purpose.identity') },
+    { value: 'identity_expiry', label: t('customers.documents.purpose.identity_expiry') },
+    { value: 'license', label: t('customers.documents.purpose.license') },
+    { value: 'license_expiry', label: t('customers.documents.purpose.license_expiry') },
+    { value: 'signature', label: t('customers.documents.purpose.signature') },
+    { value: 'general', label: t('customers.documents.purpose.general') },
+  ]
 
   const statusOptions: readonly StatusOption[] = [
     { value: 'active', label: t('customers.status.active'), tone: 'success' },
@@ -77,6 +99,10 @@ export function useCustomerOptions() {
 
   return {
     typeOptions,
+    profileTypeOptions,
+    residencyOptions,
+    identityDocumentTypeOptions,
+    documentPurposeOptions,
     statusOptions,
     documentStatusOptions,
     fileTypeOptions,

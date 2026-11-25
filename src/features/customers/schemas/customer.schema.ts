@@ -3,6 +3,9 @@ import { isTodayOrFutureDate } from '@/utils/dates'
 import type { PageQuery } from '@/types/pagination'
 
 export const customerTypes = ['individual', 'corporate'] as const
+export const customerProfileTypes = ['individual', 'organization', 'tourist'] as const
+export const customerResidencies = ['residential', 'gcc', 'tourist'] as const
+export const customerIdentityTypes = ['passport', 'emirates_id'] as const
 export const customerStatuses = ['active', 'inactive', 'suspended'] as const
 export const customerDocumentStatuses = ['none', 'pending', 'verified', 'needs_review'] as const
 export const contactRoles = ['driver', 'contact', 'other'] as const
@@ -14,6 +17,14 @@ export const customerFileTypes = [
   'trade_license',
   'vat_certificate',
   'other',
+] as const
+export const customerDocumentPurposes = [
+  'general',
+  'identity',
+  'identity_expiry',
+  'license',
+  'license_expiry',
+  'signature',
 ] as const
 export const customerFileStatuses = ['active', 'archived'] as const
 export const ocrStatuses = [
@@ -47,6 +58,7 @@ export const customerListItemSchema = z.object({
   id: z.string(),
   customerNumber: z.string(),
   type: z.string(),
+  customerType: z.string().optional(),
   status: z.string(),
   displayName: z.string(),
   email: z.string().optional(),
@@ -58,10 +70,21 @@ export const customerListItemSchema = z.object({
 })
 export type CustomerListItem = z.infer<typeof customerListItemSchema>
 
+export const customerStatsSchema = z.object({
+  total: z.number(),
+  active: z.number(),
+  inactive: z.number(),
+  suspended: z.number(),
+  individual: z.number(),
+  organization: z.number(),
+  tourist: z.number(),
+})
+export type CustomerStats = z.infer<typeof customerStatsSchema>
+
 const individualSchema = z.object({
-  firstName: z.string(),
+  firstName: z.string().optional(),
   middleName: z.string().optional(),
-  lastName: z.string(),
+  lastName: z.string().optional(),
   dateOfBirth: z.string().optional(),
   nationality: z.string().optional(),
 })
@@ -80,6 +103,16 @@ export const customerDetailSchema = customerListItemSchema.extend({
   notes: z.string().optional(),
   individual: individualSchema.optional(),
   corporate: corporateSchema.optional(),
+  residency: z.string().optional(),
+  identityDocumentType: z.string().optional(),
+  identityNumber: z.string().optional(),
+  identityIssuedOn: z.string().optional(),
+  identityExpiresOn: z.string().optional(),
+  identityIssuePlace: z.string().optional(),
+  licenseNumber: z.string().optional(),
+  licenseIssuedOn: z.string().optional(),
+  licenseExpiresOn: z.string().optional(),
+  vatNumber: z.string().optional(),
   createdBy: z.string(),
   updatedAt: z.string(),
 })
@@ -106,6 +139,7 @@ export const customerDocumentSchema = z.object({
   customerId: z.string(),
   branchId: z.string(),
   documentType: z.string(),
+  purpose: z.string().optional(),
   originalFilename: z.string(),
   byteSize: z.number(),
   mimeType: z.string(),
@@ -172,11 +206,19 @@ export type DuplicateReview = z.infer<typeof duplicateReviewSchema>
 export type CustomerListQuery = PageQuery & {
   organizationId?: string
   type?: string
+  customerType?: string
   status?: string
   branchId?: string
   documentStatus?: string
   sort?: 'displayName' | 'createdAt' | 'customerNumber'
   order?: 'asc' | 'desc'
+}
+
+export type CustomerStatsQuery = {
+  organizationId?: string
+  customerType?: string
+  branchId?: string
+  search?: string
 }
 
 export type CustomerScope = {
@@ -233,6 +275,17 @@ export const customerFormSchema = z
     organizationId: z.string(),
     branchId: z.string().trim().min(1, 'validation.required'),
     type: z.enum(customerTypes),
+    customerType: z.enum(customerProfileTypes),
+    residency: z.enum(['', ...customerResidencies]),
+    identityDocumentType: z.enum(['', ...customerIdentityTypes]),
+    identityNumber: optionalText(80),
+    identityIssuedOn: optionalDate,
+    identityExpiresOn: optionalDate,
+    identityIssuePlace: optionalText(100),
+    licenseNumber: optionalText(80),
+    licenseIssuedOn: optionalDate,
+    licenseExpiresOn: optionalDate,
+    vatNumber: optionalText(80),
     displayName: optionalText(200),
     email: optionalEmail,
     phone: optionalPhone,
@@ -260,19 +313,26 @@ export const customerFormSchema = z
     if (started && value.country.length > 0 && value.country.length < 2) {
       ctx.addIssue({ code: 'custom', message: 'validation.countryCode', path: ['country'] })
     }
-    if (value.type === 'individual' && (!value.firstName || !value.lastName)) {
+    if (!value.displayName.trim() && (!value.firstName || !value.lastName)) {
       ctx.addIssue({
         code: 'custom',
-        message: 'customers.validation.individualName',
-        path: ['firstName'],
+        message: 'validation.required',
+        path: ['displayName'],
       })
     }
-    if (value.type === 'corporate' && !value.legalName) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'customers.validation.corporateName',
-        path: ['legalName'],
-      })
+    for (const [issuedKey, expiresKey] of [
+      ['identityIssuedOn', 'identityExpiresOn'],
+      ['licenseIssuedOn', 'licenseExpiresOn'],
+    ] as const) {
+      const issuedOn = value[issuedKey]
+      const expiresOn = value[expiresKey]
+      if (issuedOn && expiresOn && expiresOn < issuedOn) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'customers.validation.expiryBeforeIssue',
+          path: [expiresKey],
+        })
+      }
     }
   })
 
@@ -295,17 +355,28 @@ export function toCustomerCreateBody(values: CustomerFormValues) {
   return {
     organizationId: omitEmpty(values.organizationId),
     branchId: values.branchId.trim(),
-    type: values.type,
+    type: values.customerType === 'organization' ? 'corporate' : 'individual',
+    customerType: values.customerType,
     displayName: omitEmpty(values.displayName),
     email: omitEmpty(values.email),
     phone: omitEmpty(values.phone),
     alternatePhone: omitEmpty(values.alternatePhone),
     address,
     notes: omitEmpty(values.notes),
+    residency: omitEmpty(values.residency),
+    identityDocumentType: omitEmpty(values.identityDocumentType),
+    identityNumber: omitEmpty(values.identityNumber),
+    identityIssuedOn: omitEmpty(values.identityIssuedOn),
+    identityExpiresOn: omitEmpty(values.identityExpiresOn),
+    identityIssuePlace: omitEmpty(values.identityIssuePlace),
+    licenseNumber: omitEmpty(values.licenseNumber),
+    licenseIssuedOn: omitEmpty(values.licenseIssuedOn),
+    licenseExpiresOn: omitEmpty(values.licenseExpiresOn),
+    vatNumber: omitEmpty(values.vatNumber),
     individual:
-      values.type === 'individual'
+      values.customerType !== 'organization'
         ? {
-            firstName: values.firstName.trim(),
+            firstName: values.firstName.trim() || values.displayName.trim(),
             middleName: omitEmpty(values.middleName),
             lastName: values.lastName.trim(),
             dateOfBirth: omitEmpty(values.dateOfBirth),
@@ -313,12 +384,12 @@ export function toCustomerCreateBody(values: CustomerFormValues) {
           }
         : undefined,
     corporate:
-      values.type === 'corporate'
+      values.customerType === 'organization'
         ? {
-            legalName: values.legalName.trim(),
+            legalName: values.legalName.trim() || values.displayName.trim(),
             tradeName: omitEmpty(values.tradeName),
             registrationNumber: omitEmpty(values.registrationNumber),
-            taxNumber: omitEmpty(values.taxNumber),
+            taxNumber: omitEmpty(values.taxNumber) ?? omitEmpty(values.vatNumber),
           }
         : undefined,
   }
@@ -329,33 +400,44 @@ export function toCustomerUpdateBody(values: CustomerFormValues) {
     ? { line1: values.line1.trim(), city: values.city.trim(), country: values.country.trim() }
     : null
   return {
+    customerType: values.customerType,
     displayName: omitEmpty(values.displayName),
     email: emptyToNull(values.email),
     phone: emptyToNull(values.phone),
     alternatePhone: emptyToNull(values.alternatePhone),
     address,
     notes: emptyToNull(values.notes),
+    residency: emptyToNull(values.residency),
+    identityDocumentType: emptyToNull(values.identityDocumentType),
+    identityNumber: isMasked(values.identityNumber) ? undefined : emptyToNull(values.identityNumber),
+    identityIssuedOn: emptyToNull(values.identityIssuedOn),
+    identityExpiresOn: emptyToNull(values.identityExpiresOn),
+    identityIssuePlace: emptyToNull(values.identityIssuePlace),
+    licenseNumber: isMasked(values.licenseNumber) ? undefined : emptyToNull(values.licenseNumber),
+    licenseIssuedOn: emptyToNull(values.licenseIssuedOn),
+    licenseExpiresOn: emptyToNull(values.licenseExpiresOn),
+    vatNumber: isMasked(values.vatNumber) ? undefined : emptyToNull(values.vatNumber),
     individual:
-      values.type === 'individual'
+      values.customerType !== 'organization'
         ? {
-            firstName: values.firstName.trim(),
+            firstName: values.firstName.trim() || undefined,
             middleName: emptyToNull(values.middleName),
-            lastName: values.lastName.trim(),
+            lastName: values.lastName.trim() || undefined,
             dateOfBirth: emptyToNull(values.dateOfBirth),
             nationality: emptyToNull(values.nationality),
           }
         : undefined,
     corporate:
-      values.type === 'corporate'
+      values.customerType === 'organization'
         ? {
-            legalName: values.legalName.trim(),
+            legalName: values.legalName.trim() || values.displayName.trim(),
             tradeName: emptyToNull(values.tradeName),
             registrationNumber: values.registrationNumber.includes('*')
               ? undefined
               : emptyToNull(values.registrationNumber),
             taxNumber: values.taxNumber.includes('*')
               ? undefined
-              : emptyToNull(values.taxNumber),
+              : emptyToNull(values.taxNumber) ?? emptyToNull(values.vatNumber),
           }
         : undefined,
   }
@@ -366,6 +448,30 @@ export function customerToFormValues(customer?: CustomerDetail): CustomerFormVal
     organizationId: customer?.organizationId ?? '',
     branchId: customer?.branchId ?? '',
     type: customer?.type === 'corporate' ? 'corporate' : 'individual',
+    customerType:
+      customer?.customerType === 'organization' ||
+      customer?.customerType === 'tourist' ||
+      customer?.customerType === 'individual'
+        ? customer.customerType
+        : customer?.type === 'corporate'
+          ? 'organization'
+          : 'individual',
+    residency:
+      customer?.residency === 'residential' || customer?.residency === 'gcc' || customer?.residency === 'tourist'
+        ? customer.residency
+        : '',
+    identityDocumentType:
+      customer?.identityDocumentType === 'passport' || customer?.identityDocumentType === 'emirates_id'
+        ? customer.identityDocumentType
+        : '',
+    identityNumber: customer?.identityNumber ?? '',
+    identityIssuedOn: customer?.identityIssuedOn ?? '',
+    identityExpiresOn: customer?.identityExpiresOn ?? '',
+    identityIssuePlace: customer?.identityIssuePlace ?? '',
+    licenseNumber: customer?.licenseNumber ?? '',
+    licenseIssuedOn: customer?.licenseIssuedOn ?? '',
+    licenseExpiresOn: customer?.licenseExpiresOn ?? '',
+    vatNumber: customer?.vatNumber ?? '',
     displayName: customer?.displayName ?? '',
     email: customer?.email ?? '',
     phone: customer?.phone ?? '',
@@ -446,6 +552,7 @@ export type ContactUpdatePayload = ReturnType<typeof toContactUpdateBody>
 
 export const uploadDocumentSchema = z.object({
   documentType: z.enum(customerFileTypes),
+  purpose: z.enum(customerDocumentPurposes).optional(),
   filename: z.string().trim().min(1).max(255),
   mimeType: z.enum(['image/jpeg', 'image/png', 'image/webp', 'application/pdf']),
   contentBase64: z.string().min(1),

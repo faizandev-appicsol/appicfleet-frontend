@@ -5,6 +5,7 @@ import {
   customerDetailSchema,
   customerDocumentSchema,
   customerListItemSchema,
+  customerStatsSchema,
   duplicateReviewSchema,
   ocrRunSchema,
   type CustomerContact,
@@ -12,6 +13,8 @@ import {
   type CustomerDocument,
   type CustomerListItem,
   type CustomerListQuery,
+  type CustomerStats,
+  type CustomerStatsQuery,
   type CustomerScope,
   type DuplicateReview,
   type OcrRun,
@@ -68,6 +71,19 @@ export const customersApi = baseApi.injectEndpoints({
             ]
           : [{ type: 'Customers' as const, id: 'LIST' }],
     }),
+    getCustomerStats: builder.query<CustomerStats, CustomerStatsQuery | void>({
+      query: (query) => ({
+        url: `${API_ENDPOINTS.customers}/stats`,
+        params: query
+          ? Object.fromEntries(
+              Object.entries(query).filter(([, value]) => value !== undefined && value !== ''),
+            )
+          : undefined,
+      }),
+      transformResponse: (response: unknown) =>
+        parseResource(customerStatsSchema, response, LOAD_ERROR),
+      providesTags: [{ type: 'Customers', id: 'LIST' }],
+    }),
     getCustomer: builder.query<CustomerDetail, { id: string; reveal?: boolean }>({
       query: ({ id, reveal }) => ({
         url: customerUrl(id),
@@ -91,6 +107,16 @@ export const customersApi = baseApi.injectEndpoints({
         { type: 'Customers', id: 'LIST' },
         duplicatesTag(id),
       ],
+    }),
+    deleteCustomer: builder.mutation<void, string>({
+      query: (id) => ({ url: customerUrl(id), method: 'DELETE' }),
+      invalidatesTags: (_result, error, id) =>
+        error
+          ? []
+          : [
+              { type: 'Customer', id },
+              { type: 'Customers', id: 'LIST' },
+            ],
     }),
     changeCustomerStatus: builder.mutation<
       CustomerDetail,
@@ -235,6 +261,28 @@ export const customersApi = baseApi.injectEndpoints({
         }
       },
     }),
+    previewCustomerDocument: builder.mutation<
+      string,
+      { customerId: string; documentId: string }
+    >({
+      queryFn: async ({ customerId, documentId }, api) => {
+        const token = readAccessToken(api.getState())
+        const url = `${env.apiUrl}${customerUrl(customerId, `/documents/${encodeURIComponent(documentId)}/content`)}?intent=view`
+        try {
+          const response = await fetch(url, {
+            credentials: 'include',
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+          })
+          if (!response.ok) {
+            return { error: { status: response.status, data: undefined } }
+          }
+          const objectUrl = URL.createObjectURL(await response.blob())
+          return { data: objectUrl }
+        } catch {
+          return { error: { status: 'FETCH_ERROR', error: 'Network request failed' } }
+        }
+      },
+    }),
     getOcrRuns: builder.query<Paginated<OcrRun>, CustomerScope & { documentId: string }>({
       query: ({ customerId, documentId, page, pageSize, reveal }) => ({
         url: customerUrl(customerId, `/documents/${encodeURIComponent(documentId)}/ocr`),
@@ -308,9 +356,11 @@ export const customersApi = baseApi.injectEndpoints({
 
 export const {
   useGetCustomersQuery,
+  useGetCustomerStatsQuery,
   useGetCustomerQuery,
   useCreateCustomerMutation,
   useUpdateCustomerMutation,
+  useDeleteCustomerMutation,
   useChangeCustomerStatusMutation,
   useGetCustomerContactsQuery,
   useCreateCustomerContactMutation,
@@ -320,6 +370,7 @@ export const {
   useUploadCustomerDocumentMutation,
   useArchiveCustomerDocumentMutation,
   useOpenCustomerDocumentMutation,
+  usePreviewCustomerDocumentMutation,
   useGetOcrRunsQuery,
   useStartOcrMutation,
   useReviewOcrMutation,

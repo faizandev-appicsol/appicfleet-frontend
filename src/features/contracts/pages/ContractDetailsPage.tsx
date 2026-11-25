@@ -15,6 +15,7 @@ import { usePermissions } from '@/features/auth/hooks/usePermissions'
 import {
   useContractActionMutation,
   useGetContractQuery,
+  useLazyGetContractDocumentContentQuery,
   useUpdateContractMutation,
 } from '@/features/contracts/api/contractsApi'
 import { ContractFormDialog } from '@/features/contracts/components/ContractFormDialog'
@@ -23,10 +24,8 @@ import type { ContractWriteBody } from '@/features/contracts/schemas/contract.sc
 import { formatInZone } from '@/features/bookings/utils/zonedTime'
 import { useBranchOptions } from '@/features/branches/hooks/useBranchOptions'
 import { useDocumentTitle } from '@/hooks/useDocumentTitle'
-import { useTranslation } from '@/i18n'
+import { useTranslation, type MessageKey } from '@/i18n'
 import { normalizeApiError } from '@/lib/api/apiError'
-
-const APPROVE_ROLES = ['admin', 'org_admin', 'super_admin'] as const
 
 export function ContractDetailsPage() {
   const { contractId = '' } = useParams()
@@ -39,18 +38,19 @@ export function ContractDetailsPage() {
   const [act, state] = useContractActionMutation()
   const [updateContract] = useUpdateContractMutation()
   const [error, setError] = useState<string>()
+  const [documentError, setDocumentError] = useState<string>()
   const [editing, setEditing] = useState(false)
   const [dialog, setDialog] = useState<'cancel' | 'extend' | 'replace' | 'handover' | 'return' | 'amend' | 'sign' | 'terms' | null>(null)
   const [reason, setReason] = useState('')
   const [extra, setExtra] = useState('')
   const [mileage, setMileage] = useState('0')
   const [fuel, setFuel] = useState('50')
+  const [downloadDocument, downloadState] = useLazyGetContractDocumentContentQuery()
   const row = query.data
   useDocumentTitle(row?.contractNumber ?? t('contracts.title'))
   const zone = branches.items.find((branch) => branch.id === row?.branchId)?.timezone || 'UTC'
   const staff = hasAnyRole(roles, contractDirectoryRoles)
   const canUpdate = can(PERMISSIONS.contractUpdate) || staff
-  const canApprove = can(PERMISSIONS.contractApprove) || hasAnyRole(roles, APPROVE_ROLES)
 
   async function run(action: string, body?: unknown) {
     setError(undefined)
@@ -59,6 +59,23 @@ export function ContractDetailsPage() {
       setDialog(null)
     } catch (caught) {
       setError(normalizeApiError(caught).message)
+    }
+  }
+
+  async function downloadAttachment(attachment: NonNullable<typeof row>['documents'][number]) {
+    setDocumentError(undefined)
+    try {
+      const blob = await downloadDocument({ id: contractId, documentId: attachment.id }).unwrap()
+      const objectUrl = URL.createObjectURL(blob)
+      const link = window.document.createElement('a')
+      link.href = objectUrl
+      link.download = attachment.originalFilename
+      window.document.body.appendChild(link)
+      link.click()
+      link.remove()
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000)
+    } catch (caught) {
+      setDocumentError(normalizeApiError(caught).message)
     }
   }
 
@@ -79,14 +96,12 @@ export function ContractDetailsPage() {
             description={contract.customerName}
             action={
               <div className="flex flex-wrap gap-2">
-                {contract.status === 'draft' && canUpdate ? (
+                {(contract.status === 'draft' && canUpdate && can(PERMISSIONS.contractActivate)) ||
+                (contract.status === 'active' && canUpdate) ? (
                   <Button type="button" variant="secondary" onClick={() => setEditing(true)}>
                     {t('common.edit')}
                   </Button>
                 ) : null}
-                {contract.status === 'draft' && staff ? <Button type="button" loading={state.isLoading} onClick={() => void run('/submit')}>{t('contracts.actions.submit')}</Button> : null}
-                {contract.status === 'pending_approval' && canApprove ? <Button type="button" loading={state.isLoading} onClick={() => void run('/approve')}>{t('contracts.actions.approve')}</Button> : null}
-                {contract.status === 'pending_approval' && canApprove ? <Button type="button" variant="danger" onClick={() => setDialog('cancel')}>{t('contracts.actions.reject')}</Button> : null}
                 {contract.status === 'approved' && staff ? <Button type="button" loading={state.isLoading} onClick={() => void run('/activate')}>{t('contracts.actions.activate')}</Button> : null}
                 {contract.status === 'active' && staff ? <Button type="button" variant="secondary" onClick={() => void run('/suspend')}>{t('contracts.actions.suspend')}</Button> : null}
                 {contract.status === 'suspended' && staff ? <Button type="button" onClick={() => void run('/resume')}>{t('contracts.actions.resume')}</Button> : null}
@@ -101,29 +116,43 @@ export function ContractDetailsPage() {
             }
           />
           {error ? <Alert tone="danger">{tm(error)}</Alert> : null}
-          <p className="text-muted text-sm">{t('contracts.assignmentNote')}</p>
-          <dl className="grid gap-3 sm:grid-cols-2">
-            <Item label={t('common.status')}><StatusBadge value={contract.status} options={options.statusOptions} /></Item>
-            <Item label={t('contracts.columns.type')}>{options.labelOf(options.typeOptions, contract.type)}</Item>
-            <Item label={t('contracts.columns.customer')}>
-              <Link className="text-brand" to={`${appConfig.routes.customers}/${encodeURIComponent(contract.customerId)}`}>{contract.customerName}</Link>
-            </Item>
-            <Item label={t('contracts.columns.vehicle')}>
-              {contract.currentVehicleId ? (
-                <Link className="text-brand" dir="ltr" to={`${appConfig.routes.vehicles}/${encodeURIComponent(contract.currentVehicleId)}`}>{contract.currentPlate}</Link>
-              ) : t('common.notSet')}
-            </Item>
-            <Item label={t('contracts.columns.start')}><span dir="ltr">{formatInZone(contract.startsAt, zone, locale)}</span></Item>
-            <Item label={t('contracts.columns.end')}><span dir="ltr">{formatInZone(contract.endsAt, zone, locale)}</span></Item>
-            {contract.lenderName ? <Item label={t('contracts.form.lender')}>{contract.lenderName}</Item> : null}
-            {contract.companyName ? <Item label={t('contracts.form.company')}>{contract.companyName}</Item> : null}
-          </dl>
+          <section className="border-line bg-surface shadow-card grid gap-5 rounded-2xl border p-5 sm:p-6">
+            <p className="text-muted text-sm">{t('contracts.assignmentNote')}</p>
+            <dl className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <Item label={t('common.status')}><StatusBadge value={contract.status} options={options.statusOptions} /></Item>
+              <Item label={t('contracts.columns.type')}>{options.labelOf(options.typeOptions, contract.type)}</Item>
+              <Item label={t('contracts.columns.customer')}>
+                <Link className="text-brand font-medium hover:underline" to={`${appConfig.routes.customers}/${encodeURIComponent(contract.customerId)}`}>{contract.customerName}</Link>
+              </Item>
+              <Item label={t('contracts.columns.vehicle')}>
+                {contract.currentVehicleId ? (
+                  <Link className="text-brand font-medium hover:underline" dir="ltr" to={`${appConfig.routes.vehicles}/${encodeURIComponent(contract.currentVehicleId)}`}>{contract.currentPlate}</Link>
+                ) : t('common.notSet')}
+              </Item>
+              <Item label={t('contracts.columns.start')}><span dir="ltr">{formatInZone(contract.startsAt, zone, locale)}</span></Item>
+              <Item label={t('contracts.columns.end')}><span dir="ltr">{formatInZone(contract.endsAt, zone, locale)}</span></Item>
+              {contract.driverName ? <Item label={t('contracts.form.driver')}>{contract.driverName}</Item> : null}
+              {contract.details?.grandTotal ? (
+                <Item label={t('contracts.form.total')}>
+                  <span dir="ltr">
+                    {displayDetail(contract.details.grandTotal)}
+                    {contract.details.currency ? ` ${displayDetail(contract.details.currency)}` : ''}
+                  </span>
+                </Item>
+              ) : null}
+              {contract.lenderName ? <Item label={t('contracts.form.lender')}>{contract.lenderName}</Item> : null}
+              {contract.companyName ? <Item label={t('contracts.form.company')}>{contract.companyName}</Item> : null}
+              {contract.notes ? <Item label={t('contracts.form.notes')}>{contract.notes}</Item> : null}
+            </dl>
+          </section>
 
           <Section title={t('contracts.sections.assignments')}>
             <ul className="grid gap-2">
               {contract.assignments.map((assignment) => (
                 <li key={assignment.id} className="border-line rounded-md border px-3 py-2 text-sm">
-                  <span dir="ltr">{assignment.vehiclePlate ?? assignment.vehicleId}</span>
+                  <Link className="text-brand font-medium hover:underline" dir="ltr" to={`${appConfig.routes.vehicles}/${encodeURIComponent(assignment.vehicleId)}`}>
+                    {assignment.vehiclePlate ?? assignment.vehicleId}
+                  </Link>
                   <span className="text-muted ms-2" dir="ltr">{formatInZone(assignment.startsAt, zone, locale)} – {formatInZone(assignment.endsAt, zone, locale)}</span>
                   <span className="ms-2">{assignment.status}</span>
                 </li>
@@ -139,6 +168,43 @@ export function ContractDetailsPage() {
                 </li>
               ))}
             </ul>
+          </Section>
+          <Section title={t('contracts.sections.documents')}>
+            {documentError ? <Alert tone="danger">{tm(documentError)}</Alert> : null}
+            {contract.documents.length ? (
+              <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                {contract.documents.map((attachment) => (
+                  <li
+                    key={attachment.id}
+                    className="border-line bg-surface grid min-w-0 gap-2 rounded-xl border p-3"
+                  >
+                    <p className="text-sm font-semibold">
+                      {t(`contracts.documents.types.${attachment.documentType}` as MessageKey)}
+                    </p>
+                    <p className="text-muted truncate text-sm" title={attachment.originalFilename}>
+                      {attachment.originalFilename}
+                    </p>
+                    <p className="text-muted text-xs" dir="ltr">
+                      {(attachment.byteSize / 1024).toFixed(0)} KB · {formatInZone(attachment.createdAt, zone, locale)}
+                    </p>
+                    {can(PERMISSIONS.contractViewSensitive) ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        className="w-fit"
+                        loading={downloadState.isLoading}
+                        onClick={() => void downloadAttachment(attachment)}
+                      >
+                        {t('contracts.documents.download')}
+                      </Button>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-muted text-sm">{t('contracts.documents.empty')}</p>
+            )}
           </Section>
           <Section title={t('contracts.sections.terms')}>
             {contract.terms.map((version) => (
@@ -187,7 +253,7 @@ export function ContractDetailsPage() {
               contract={contract}
               onClose={() => setEditing(false)}
               onSubmit={async (body: ContractWriteBody) => {
-                await updateContract({ id: contract.id, body }).unwrap()
+                return updateContract({ id: contract.id, body }).unwrap()
               }}
             />
           ) : null}
@@ -245,9 +311,13 @@ export function ContractDetailsPage() {
 }
 
 function Item({ label, children }: { label: string; children: ReactNode }) {
-  return <div><dt className="text-muted text-xs">{label}</dt><dd>{children}</dd></div>
+  return <div className="grid min-w-0 content-start gap-1"><dt className="text-muted text-xs font-medium">{label}</dt><dd className="min-w-0 break-words text-sm font-medium">{children}</dd></div>
+}
+
+function displayDetail(value: unknown): string {
+  return typeof value === 'string' || typeof value === 'number' ? String(value) : ''
 }
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
-  return <section className="grid gap-2"><h2 className="text-base font-semibold">{title}</h2>{children}</section>
+  return <section className="border-line bg-surface shadow-card grid gap-3 rounded-2xl border p-5"><h2 className="text-base font-semibold">{title}</h2>{children}</section>
 }

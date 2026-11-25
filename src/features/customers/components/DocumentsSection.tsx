@@ -76,6 +76,11 @@ export function DocumentsSection({
           <p className="text-muted text-xs" dir="ltr">
             {row.originalFilename}
           </p>
+          {row.purpose ? (
+            <p className="text-muted text-xs">
+              {options.labelOf(options.documentPurposeOptions, row.purpose)}
+            </p>
+          ) : null}
         </>
       ),
     },

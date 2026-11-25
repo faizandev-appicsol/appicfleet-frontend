@@ -1,7 +1,16 @@
 import { z } from 'zod'
+import type { CustomerCreatePayload } from '@/features/customers/schemas/customer.schema'
 import type { PageQuery } from '@/types/pagination'
 
-export const contractTypes = ['b2c', 'b2b', 'borrow'] as const
+export const contractTypes = [
+  'b2c',
+  'b2b',
+  'borrow',
+  'old_contract',
+  'draft_b2c',
+  'draft_b2b',
+  'non_revenue',
+] as const
 export const contractStatuses = [
   'draft',
   'pending_approval',
@@ -50,11 +59,31 @@ export const contractSchema = z.object({
   lenderName: z.string().optional(),
   borrowCost: z.string().optional(),
   notes: z.string().optional(),
+  /** Extra form fields (see ContractDetails in contractFormState.ts). */
+  details: z.record(z.string(), z.unknown()).optional(),
   acceptedTermsVersionId: z.string().optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
 })
 export type Contract = z.infer<typeof contractSchema>
+
+export const contractStatsSchema = z.object({
+  total: z.number(),
+  active: z.number(),
+  b2c: z.number(),
+  b2b: z.number(),
+})
+export type ContractStats = z.infer<typeof contractStatsSchema>
+
+export const contractDocumentSchema = z.object({
+  id: z.string(),
+  documentType: z.string(),
+  originalFilename: z.string(),
+  byteSize: z.number(),
+  mimeType: z.string(),
+  createdAt: z.string(),
+})
+export type ContractDocument = z.infer<typeof contractDocumentSchema>
 
 const assignmentSchema = z.object({
   id: z.string(),
@@ -70,6 +99,7 @@ const assignmentSchema = z.object({
 })
 
 export const contractDetailSchema = contractSchema.extend({
+  documents: z.array(contractDocumentSchema).default([]),
   assignments: z.array(assignmentSchema),
   charges: z.array(chargeSchema),
   billableCharges: z.array(chargeSchema),
@@ -155,22 +185,35 @@ export type ContractListQuery = PageQuery & {
   type?: string
   branchId?: string
   organizationId?: string
+  customerId?: string
+  vehicleId?: string
   sort?: 'contractNumber' | 'startsAt' | 'endsAt' | 'createdAt' | 'status'
   order?: 'asc' | 'desc'
   activeOnly?: 'true' | 'false'
 }
 
+export type ContractStatsQuery = {
+  organizationId?: string
+  type?: string
+  branchId?: string
+  search?: string
+}
+
 export type ContractWriteBody = {
   organizationId?: string
-  type: string
-  customerId: string
+  type?: string
+  customerId?: string
+  newCustomer?: CustomerCreatePayload
   vehicleId?: string
-  startsAt: string
-  endsAt: string
-  terms: string
+  startsAt?: string
+  endsAt?: string
+  terms?: string
+  signerName?: string
   driverName?: string
   authorizedContactName?: string
   lenderName?: string
   borrowCost?: string
   notes?: string
+  /** Emirate, customer ID data, pricing, payments, add-ons ... */
+  details?: Record<string, unknown>
 }

@@ -17,6 +17,10 @@ export function useContractOptions() {
     { value: 'b2c', label: t('contracts.type.b2c') },
     { value: 'b2b', label: t('contracts.type.b2b') },
     { value: 'borrow', label: t('contracts.type.borrow') },
+    { value: 'old_contract', label: t('contracts.type.old_contract') },
+    { value: 'draft_b2c', label: t('contracts.type.draft_b2c') },
+    { value: 'draft_b2b', label: t('contracts.type.draft_b2b') },
+    { value: 'non_revenue', label: t('contracts.type.non_revenue') },
   ]
   const labelOf = (options: readonly { value: string; label: string }[], value: string) =>
     options.find((option) => option.value === value)?.label ?? value

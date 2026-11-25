@@ -66,6 +66,11 @@ export const dashboardOverviewSchema = z.object({
       count: z.number(),
       overdueCount: z.number(),
     }),
+    totalVehicles: z.number(),
+    totalContracts: z.number(),
+    b2cContracts: z.number(),
+    b2bContracts: z.number(),
+    totalCustomers: z.number(),
     fleetUtilization: z.object({
       rented: z.number(),
       eligible: z.number(),
@@ -81,12 +86,18 @@ export const dashboardOverviewSchema = z.object({
       })
       .nullable()
       .optional(),
+    pendingPayments: kpiMoneySchema,
   }),
   charts: z.object({
     groupBy: z.string(),
     revenueTrend: z.array(z.object({ period: z.string(), amount: money, count: z.number() })),
     bookingTrend: z.array(z.object({ period: z.string(), count: z.number() })),
     fleetStatus: z.record(z.string(), z.number()),
+    contractType: z.record(z.string(), z.number()),
+    contractTrend: z.array(z.object({ period: z.string(), count: z.number() })),
+    customerTrend: z.array(z.object({ period: z.string(), count: z.number() })),
+    paymentTrend: z.array(z.object({ period: z.string(), paid: money, pending: money })),
+    paymentCurrency: z.string().nullable(),
   }),
   operational: z.object({
     upcomingReturns: z.array(z.record(z.string(), z.unknown())),
@@ -96,6 +107,8 @@ export const dashboardOverviewSchema = z.object({
     bookings: z.array(z.record(z.string(), z.unknown())),
     payments: z.array(z.record(z.string(), z.unknown())),
     contracts: z.array(z.record(z.string(), z.unknown())),
+    vehicles: z.array(z.record(z.string(), z.unknown())),
+    customers: z.array(z.record(z.string(), z.unknown())),
   }),
 })
 
